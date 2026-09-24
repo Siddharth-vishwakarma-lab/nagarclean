@@ -21,7 +21,7 @@ The server creates this HQ demo account on first start when no HQ account with t
 
 Zone Office demo account:
 
-- Email: `admin@nagarclean.demo`
+- Email: `zone1@nagarclean.demo`
 - Password: `Zone@123`
 - Role: Zone Office, Zone 1
 
