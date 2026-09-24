@@ -916,7 +916,7 @@ const DICT = {
     govlinks_placeholder_note:'यह एक प्रोटोटाइप की जानकारी है — असली deployment में यह सीधे संबंधित दस्तावेज़ या पेज से जुड़ा होगा।',
   }
 };
-function getLang(){ return localStorage.getItem('nc_lang') || 'hi'; }
+function getLang(){ return localStorage.getItem('nc_lang') || 'en'; }
 function setLang(lang){ localStorage.setItem('nc_lang', lang); applyLang(); }
 function toggleLangFromLink(){ setLang(getLang()==='hi' ? 'en' : 'hi'); }
 function t(key){ const lang = getLang(); return (DICT[lang] && DICT[lang][key]) || DICT.en[key] || key; }

@@ -171,7 +171,7 @@ const DICT = {
     citizen_link:'सार्वजनिक NagarClean साइट पर जाएं',
   }
 };
-function getLang(){ return localStorage.getItem('nc_lang') || 'hi'; }
+function getLang(){ return localStorage.getItem('nc_lang') || 'en'; }
 function setLang(lang){ localStorage.setItem('nc_lang', lang); applyLang(); }
 function t(key){ const lang = getLang(); return (DICT[lang] && DICT[lang][key]) || DICT.en[key] || key; }
 function applyLang(){

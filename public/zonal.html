@@ -27,7 +27,7 @@
   input,select,textarea{font-family:inherit;font-size:14.5px;}
 
   /* ================= APP SHELL ================= */
-  .app-shell{display:flex;min-height:100vh;}
+  .app-shell{display:flex;min-height:100vh;min-width:0;}
   .sidebar{width:var(--sidebar-w);flex:none;background:var(--primary-dark);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:40;}
   .sidebar-brand{padding:20px 20px 16px;border-bottom:1px solid rgba(255,255,255,.08);}
   .sidebar-brand .name{font-weight:800;font-size:18px;}
@@ -53,7 +53,7 @@
   .sidebar-lang button{flex:1;background:rgba(255,255,255,.08);border:none;color:#CFE0DC;padding:6px;border-radius:6px;font-size:12px;font-weight:700;}
   .sidebar-lang button.active{background:#fff;color:var(--primary-dark);}
 
-  .main-area{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .main-area{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
   .topbar{background:#fff;border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:30;}
   .topbar h1{font-size:20px;margin:0;flex:none;}
   .sidebar-toggle{display:none;background:none;border:1px solid var(--border);border-radius:8px;padding:7px;color:var(--ink);}
@@ -235,7 +235,9 @@
     .quick-actions-grid{grid-template-columns:1fr 1fr;}
   }
   @media(max-width:860px){
-    .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);transition:transform .2s ease;}
+    body.sidebar-open{overflow:hidden;}
+    body.sidebar-open::after{content:'';position:fixed;inset:0;background:rgba(15,20,18,.38);z-index:90;}
+    .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-105%);transition:transform .2s ease;z-index:100;box-shadow:20px 0 40px rgba(0,0,0,.25);}
     .sidebar.open{transform:translateX(0);box-shadow:20px 0 40px rgba(0,0,0,.25);}
     .sidebar-toggle{display:flex;align-items:center;justify-content:center;}
     main{padding:20px 16px 50px;}
@@ -587,7 +589,7 @@ const DICT = {
     photo_before:'पहले', photo_after:'बाद में', upload_after_photo:'बाद की फोटो जोड़ें', incoming_empty:'फ़िलहाल कुछ भी प्रतीक्षा में नहीं है।',
   }
 };
-function getLang(){ return localStorage.getItem('nc_of_lang') || 'hi'; }
+function getLang(){ return localStorage.getItem('nc_of_lang') || 'en'; }
 function setLang(lang){ localStorage.setItem('nc_of_lang', lang); applyLang(); }
 function t(key){ const lang = getLang(); return (DICT[lang] && DICT[lang][key]) || DICT.en[key] || key; }
 function applyLang(){
@@ -712,6 +714,7 @@ function showView(view){
   document.querySelectorAll('.side-link').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.getElementById('pageTitle').textContent = t('nav_' + view);
   document.getElementById('sidebar').classList.remove('open');
+  document.body.classList.remove('sidebar-open');
   if(view === 'map'){ initZoneMapIfNeeded(); setTimeout(()=>{ if(zoneMap) zoneMap.invalidateSize(); }, 60); renderZoneMapLayers(); }
   if(view === 'overview'){ setTimeout(()=>{ if(overviewMap) overviewMap.invalidateSize(); }, 60); }
   if(view === 'workers'){ renderWorkers(); }
@@ -723,7 +726,11 @@ function showView(view){
   } else if(analyticsInterval){ clearInterval(analyticsInterval); analyticsInterval = null; }
 }
 document.querySelectorAll('.side-link').forEach(b => b.addEventListener('click', ()=>showView(b.dataset.view)));
-document.getElementById('sidebarToggle').addEventListener('click', ()=>{ document.getElementById('sidebar').classList.toggle('open'); });
+document.getElementById('sidebarToggle').addEventListener('click', ()=>{
+  document.getElementById('sidebar').classList.toggle('open');
+  document.body.classList.toggle('sidebar-open', document.getElementById('sidebar').classList.contains('open'));
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ document.getElementById('sidebar').classList.remove('open'); document.body.classList.remove('sidebar-open'); } });
 
 /* =================== RENDER: OVERVIEW =================== */
 let overviewMap, overviewMarkers = [];
