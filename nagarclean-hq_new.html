@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NagarClean — मुख्यालय डैशबोर्ड (Headquarters)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root{
+    --bg:#F5F6F1; --surface:#FFFFFF; --ink:#161A18; --ink-muted:#4B524D; --ink-faint:#7C837D;
+    --primary:#14504A; --primary-dark:#0D3733; --primary-tint:#E5EEEC;
+    --accent:#F0B429; --accent-dark:#9C6B04; --accent-tint:#FDF3DA;
+    --danger:#B23B3B; --danger-tint:#F7E7E5; --success:#2F7D5E; --success-tint:#E5F0EA;
+    --warning:#B5791A; --warning-tint:#FBF0DE; --border:#DEDBD0; --radius:10px;
+    --sidebar-w:236px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',-apple-system,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+  code,.mono{font-family:'IBM Plex Mono',monospace;}
+  h1,h2,h3{font-weight:700;margin:0 0 6px;letter-spacing:-0.01em;}
+  p{margin:0 0 10px;color:var(--ink-muted);}
+  a{color:var(--primary);}
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;font-size:14.5px;}
+
+  /* ================= APP SHELL (sidebar + main) ================= */
+  .app-shell{display:flex;min-height:100vh;}
+
+  .sidebar{
+    width:var(--sidebar-w);flex:none;background:var(--primary-dark);color:#fff;
+    display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:40;
+  }
+  .sidebar-brand{padding:20px 20px 16px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .sidebar-brand .name{font-weight:800;font-size:18px;}
+  .sidebar-brand .tag{font-size:11.5px;color:#9FC3BC;margin-top:2px;}
+  .sidebar-nav{padding:14px 12px;flex:1;}
+  .side-link{
+    display:flex;align-items:center;gap:11px;width:100%;background:none;border:none;color:#CFE0DC;
+    padding:11px 12px;border-radius:8px;font-size:14px;font-weight:600;margin-bottom:2px;text-align:left;
+  }
+  .side-link:hover{background:rgba(255,255,255,.06);color:#fff;}
+  .side-link.active{background:rgba(255,255,255,.12);color:#fff;}
+  .side-link svg{flex:none;}
+  .sidebar-foot{padding:14px 20px 20px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:#9FC3BC;}
+  .conn-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;}
+  .conn-dot.live{background:#4FCB8F;} .conn-dot.demo{background:var(--accent);}
+  .sidebar-lang{display:flex;gap:6px;margin-top:12px;}
+  .sidebar-lang button{flex:1;background:rgba(255,255,255,.08);border:none;color:#CFE0DC;padding:6px;border-radius:6px;font-size:12px;font-weight:700;}
+  .sidebar-lang button.active{background:#fff;color:var(--primary-dark);}
+
+  .main-area{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .topbar{
+    background:#fff;border-bottom:1px solid var(--border);padding:16px 28px;
+    display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:30;
+  }
+  .topbar h1{font-size:20px;margin:0;flex:none;}
+  .sidebar-toggle{display:none;background:none;border:1px solid var(--border);border-radius:8px;padding:7px;color:var(--ink);}
+  .topbar-search{flex:1;max-width:360px;display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:auto;}
+  .topbar-search input{border:none;padding:9px 12px;width:100%;}
+  .topbar-search input:focus{outline:none;}
+  .topbar-search svg{margin:0 10px;flex:none;color:var(--ink-faint);}
+
+  main{padding:26px 28px 60px;flex:1;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .wrap-inner{max-width:1280px;}
+  .section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:18px;}
+  .section-head h2{font-size:19px;margin:0;}
+  .section-head p{margin:2px 0 0;font-size:13.5px;}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:26px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
+  .stat-card .num{font-size:26px;font-weight:800;letter-spacing:-.02em;}
+  .stat-card .lbl{font-size:12.5px;color:var(--ink-muted);margin-top:2px;}
+  .stat-card.warn .num{color:var(--warning);}
+  .stat-card.danger .num{color:var(--danger);}
+  .stat-card.success .num{color:var(--success);}
+
+  .grid-2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr);gap:20px;align-items:start;}
+  .grid-2 > .card{min-width:0;overflow:hidden;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
+  .card h3{font-size:15px;margin-bottom:14px;}
+
+  table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-faint);font-weight:700;padding:0 10px 10px;border-bottom:1px solid var(--border);}
+  td{padding:11px 10px;border-bottom:1px solid var(--border);vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  tr.row-clickable{cursor:pointer;}
+  tr.row-clickable:hover{background:var(--bg);}
+  .row-id{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-muted);}
+
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:11px;font-size:13px;}
+  .bar-label{width:150px;flex:none;color:var(--ink-muted);}
+  .bar-track{flex:1;background:var(--bg);border-radius:4px;height:10px;overflow:hidden;}
+  .bar-fill{height:100%;background:var(--primary);border-radius:4px;}
+  .bar-val{width:26px;flex:none;text-align:right;color:var(--ink-faint);}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:100px;font-size:11.5px;font-weight:700;white-space:nowrap;}
+  .badge-submitted{background:var(--warning-tint);color:var(--warning);}
+  .badge-verified{background:var(--primary-tint);color:var(--primary-dark);}
+  .badge-assigned{background:var(--primary-tint);color:var(--primary-dark);}
+  .badge-progress{background:var(--accent-tint);color:var(--accent-dark);}
+  .badge-resolved{background:var(--success-tint);color:var(--success);}
+  .badge-sla-ok{background:var(--success-tint);color:var(--success);}
+  .badge-sla-warn{background:var(--warning-tint);color:var(--warning);}
+  .badge-sla-breach{background:var(--danger-tint);color:var(--danger);}
+
+  /* ---- filters (All Complaints view) ---- */
+  .filters-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+  .filters-row select, .filters-row input{padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;}
+  .filters-row input{flex:1;min-width:180px;}
+
+  /* ---- zone cards ---- */
+  .zone-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;}
+  .zone-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
+  .zone-card h3{font-size:16px;margin-bottom:4px;}
+  .zone-card .hours{font-size:12.5px;color:var(--ink-faint);margin-bottom:14px;}
+  .zone-stat-row{display:flex;gap:18px;flex-wrap:wrap;}
+  .zone-stat-row div{font-size:13px;}
+  .zone-stat-row .n{font-weight:800;font-size:18px;display:block;}
+
+  /* ---- map view ---- */
+  .map-toolbar{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px;}
+  .map-toggle{display:flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden;}
+  .map-toggle button{background:#fff;border:none;padding:8px 15px;font-size:13px;font-weight:700;color:var(--ink);}
+  .map-toggle button.active{background:var(--ink);color:#fff;}
+  .map-toggle button:not(:last-child){border-right:1.5px solid var(--ink);}
+  #hqMap{position:relative;width:100%;height:560px;min-height:320px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:var(--bg);contain:layout paint;isolation:isolate;}
+  .grid-2 > .card:has(#overviewMap){min-width:0;overflow:hidden;}
+  #hqMap .leaflet-container{width:100%;height:100%;}
+  .map-legend{display:flex;gap:16px;margin-top:12px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-muted);}
+  .map-legend .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;}
+  .map-legend.heat-mode .dot{display:none;}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:8px;border:none;font-size:13.5px;font-weight:700;}
+  .btn-primary{background:var(--accent);color:#3A2504;}
+  .btn-secondary{background:var(--primary-tint);color:var(--primary-dark);}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--ink);}
+  .btn-sm{padding:7px 12px;font-size:12.5px;}
+  .btn-block{width:100%;}
+  .btn[disabled]{opacity:.5;cursor:not-allowed;}
+
+  /* ---- detail modal ---- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(15,20,18,.5);display:none;align-items:center;justify-content:center;z-index:10000;padding:16px;isolation:isolate;}
+  .modal-overlay.open{display:flex;}
+  .modal-box{position:relative;z-index:10001;background:#fff;border-radius:12px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;}
+  .modal-close{float:right;background:none;border:none;font-size:20px;color:var(--ink-faint);line-height:1;}
+  .kv{display:grid;grid-template-columns:120px 1fr;gap:8px;font-size:13.5px;margin:5px 0;}
+  .kv span:first-child{color:var(--ink-faint);}
+  .divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
+  .actions-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .modal-box img{width:100%;border-radius:8px;margin:10px 0;max-height:220px;object-fit:cover;}
+  .empty{text-align:center;padding:34px 20px;color:var(--ink-faint);font-size:13.5px;}
+  .banner{border-radius:8px;padding:10px 14px;font-size:13px;display:none;margin-bottom:14px;}
+  .banner.show{display:block;}
+  .banner-error{background:var(--danger-tint);color:var(--danger);}
+  .reassign-row{display:flex;gap:8px;margin-top:10px;}
+  .reassign-row select{flex:1;padding:9px 10px;border:1px solid var(--border);border-radius:8px;}
+  label{display:block;font-size:12.5px;font-weight:600;margin:14px 0 6px;color:var(--ink-muted);}
+  label:first-of-type{margin-top:0;}
+  .modal-box input[type=text],.modal-box select,.modal-box textarea{
+    width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--ink);
+  }
+  .modal-box input:focus,.modal-box select:focus,.modal-box textarea:focus{outline:2px solid var(--primary);outline-offset:1px;border-color:var(--primary);}
+
+  /* ================= LOGIN / SIGNUP GATE ================= */
+  #authGate{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(155deg, var(--primary-dark), var(--primary) 60%);padding:20px;
+  }
+  .auth-card{background:#fff;border-radius:14px;padding:34px 32px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+  .auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:22px;}
+  .auth-brand .mark{width:36px;height:36px;border-radius:9px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--primary-dark);flex:none;}
+  .auth-brand .name{font-weight:800;font-size:18px;}
+  .auth-brand .tag{font-size:11.5px;color:var(--ink-faint);margin-top:-2px;}
+  .auth-tabs{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px;}
+  .auth-tabs button{flex:1;background:#fff;border:none;padding:10px;font-weight:700;font-size:13.5px;color:var(--ink-muted);}
+  .auth-tabs button.active{background:var(--primary-dark);color:#fff;}
+  .auth-view{display:none;}
+  .auth-view.active{display:block;}
+  .auth-demo-note{background:var(--accent-tint);color:var(--accent-dark);border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:4px;}
+
+  /* ================= TOPBAR RIGHT / NOTIFICATIONS ================= */
+  .topbar-right{display:flex;align-items:center;gap:16px;margin-left:14px;flex:none;}
+  .topbar-date{font-size:13px;color:var(--ink-muted);white-space:nowrap;}
+  .notif-wrap{position:relative;}
+  .notif-btn{background:none;border:none;color:var(--ink-muted);position:relative;padding:6px;border-radius:8px;}
+  .notif-btn:hover{background:var(--bg);}
+  .notif-dot{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--danger);border:1.5px solid #fff;}
+  .notif-panel{
+    display:none;position:absolute;right:0;top:calc(100% + 8px);width:280px;background:#fff;border:1px solid var(--border);
+    border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.12);padding:8px;z-index:80;
+  }
+  .notif-panel.open{display:block;}
+  .notif-item{display:block;width:100%;text-align:left;background:none;border:none;padding:10px;border-radius:8px;font-size:13px;}
+  .notif-item:hover{background:var(--bg);}
+  .topbar-admin{display:flex;align-items:center;gap:8px;white-space:nowrap;}
+  .topbar-admin .avatar{width:28px;height:28px;border-radius:50%;background:var(--primary-tint);color:var(--primary-dark);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex:none;}
+  .topbar-admin .name{font-size:13.5px;font-weight:700;}
+
+  /* ================= SIDEBAR PROFILE ================= */
+  .sidebar-profile{display:flex;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid rgba(255,255,255,.08);}
+  .sidebar-profile .avatar{width:34px;height:34px;border-radius:50%;background:var(--accent);color:var(--primary-dark);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;}
+  .sidebar-profile .who{flex:1;min-width:0;}
+  .sidebar-profile .who .n{font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sidebar-profile .who .r{font-size:11px;color:#9FC3BC;}
+  .sidebar-signout{background:none;border:none;color:#9FC3BC;flex:none;padding:6px;border-radius:6px;}
+  .sidebar-signout:hover{color:#fff;background:rgba(255,255,255,.08);}
+
+  /* ================= PRIORITY BADGES (screenshot-style High/Medium/Low) ================= */
+  .badge-prio-high{background:var(--danger-tint);color:var(--danger);}
+  .badge-prio-medium{background:var(--warning-tint);color:var(--warning);}
+  .badge-prio-low{background:var(--success-tint);color:var(--success);}
+
+  /* ================= STAT CARDS (colored, icon, screenshot-style) ================= */
+  .stat-card-c{border-radius:var(--radius);padding:16px 18px;color:#fff;display:flex;align-items:center;gap:14px;}
+  .stat-card-c .icon{width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;flex:none;}
+  .stat-card-c .num{font-size:24px;font-weight:800;line-height:1;}
+  .stat-card-c .lbl{font-size:12px;opacity:.92;margin-top:3px;}
+  .stat-card-c.c-red{background:#C0473F;} .stat-card-c.c-orange{background:#D08B2B;}
+  .stat-card-c.c-green{background:#2F7D5E;} .stat-card-c.c-blue{background:#2C6FA8;}
+
+  /* ================= OVERVIEW: complaints-map widget ================= */
+  #overviewMap{height:300px;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--bg);}
+  .view-link{background:none;border:none;color:var(--primary);font-weight:700;font-size:13px;}
+
+  /* ================= QUICK ACTIONS ================= */
+  .quick-actions-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:20px;}
+  .qa-btn{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 12px;
+    display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--ink);
+  }
+  .qa-btn:hover{border-color:var(--primary);}
+  .qa-btn .qa-icon{width:38px;height:38px;border-radius:9px;background:var(--primary-tint);color:var(--primary-dark);display:flex;align-items:center;justify-content:center;}
+
+  /* ================= WORKERS VIEW ================= */
+  .worker-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:26px;}
+  .worker-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+  .worker-card .top-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .worker-card .w-name{font-weight:700;font-size:14.5px;}
+  .worker-card .w-phone{font-size:12.5px;color:var(--ink-faint);margin-top:2px;}
+  .phone-tag{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:100px;background:var(--primary-tint);color:var(--primary-dark);}
+  .phone-tag.keypad{background:var(--accent-tint);color:var(--accent-dark);}
+  .worker-card .w-meta{margin-top:12px;font-size:12.5px;color:var(--ink-muted);}
+  .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
+  .status-dot.avail{background:var(--success);} .status-dot.busy{background:var(--warning);}
+
+  /* ================= WORKER INTERFACE CONCEPT (SMS / IVR) ================= */
+  .flow-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .flow-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+  .flow-card .flow-icon{width:36px;height:36px;border-radius:9px;background:var(--primary-tint);color:var(--primary-dark);display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+  .flow-card h4{font-size:13.5px;margin-bottom:6px;}
+  .flow-card p{font-size:12px;margin-bottom:0;}
+  .flow-step-n{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent-dark);font-weight:700;}
+
+  /* ================= ANALYTICS (dark panel, screenshot-style) ================= */
+  .analytics-dark-card{background:#161C19;border-radius:14px;padding:24px;color:#E7EAE6;}
+  .an-head{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
+  .an-head h2{color:#fff;font-size:19px;margin:0;display:flex;align-items:center;gap:8px;}
+  .an-head-icon{font-size:18px;}
+  .live-indicator{font-size:13px;color:#8FEAA8;display:flex;align-items:center;gap:6px;white-space:nowrap;}
+  .live-dot{width:9px;height:9px;border-radius:50%;background:#4FCB8F;display:inline-block;animation:livepulse 1.6s ease-in-out infinite;}
+  .live-dot.demo{background:var(--accent);}
+  @keyframes livepulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(79,203,143,.5);}50%{opacity:.6;box-shadow:0 0 0 5px rgba(79,203,143,0);}}
+  .an-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+  .an-stat{background:#1F2622;border-radius:10px;padding:18px;text-align:center;}
+  .an-stat .n{font-size:30px;font-weight:800;color:#8FEAA8;}
+  .an-stat .l{font-size:11.5px;letter-spacing:.05em;color:#9AA39C;margin-top:4px;}
+  .an-chart-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .an-card{background:#1F2622;border-radius:10px;padding:18px;}
+  .an-card h3{color:#E7EAE6;font-size:14px;margin-bottom:14px;}
+  .an-card .empty{color:#7C8580;}
+  .activity-item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #2B332E;font-size:13px;flex-wrap:wrap;}
+  .activity-item:last-child{border-bottom:none;}
+  .activity-item .a-cat{font-weight:700;color:#fff;min-width:80px;}
+  .activity-item .a-who{color:#9AA39C;display:flex;align-items:center;gap:5px;}
+  .activity-item .a-time{margin-left:auto;color:#7C8580;font-size:12px;white-space:nowrap;}
+  .abadge{display:inline-flex;padding:3px 10px;border-radius:100px;font-size:11.5px;font-weight:700;}
+  .abadge-submitted{background:#3A3320;color:#E0B15A;}
+  .abadge-verified{background:#233A38;color:#6FD1C8;}
+  .abadge-assigned{background:#2E2647;color:#B49CF0;}
+  .abadge-progress{background:#3A2E17;color:#F0B429;}
+  .abadge-resolved{background:#1E3A2C;color:#6FE0A0;}
+  @media(max-width:1100px){ .an-chart-grid{grid-template-columns:1fr;} .an-stat-row{grid-template-columns:1fr;} }
+
+  /* ================= RESPONSIVE ================= */
+  @media(max-width:1100px){
+    .stat-grid{grid-template-columns:repeat(3,1fr);}
+    .grid-2{grid-template-columns:1fr;}
+    .zone-grid{grid-template-columns:1fr;}
+    .worker-grid{grid-template-columns:1fr 1fr;}
+    .quick-actions-grid{grid-template-columns:1fr 1fr;}
+    .flow-grid{grid-template-columns:1fr 1fr;}
+  }
+  @media(max-width:860px){
+    .sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);transition:transform .2s ease;box-shadow:0 0 0 9999px rgba(0,0,0,0);}
+    .sidebar.open{transform:translateX(0);box-shadow:20px 0 40px rgba(0,0,0,.25);}
+    .sidebar-toggle{display:flex;align-items:center;justify-content:center;}
+    .stat-grid{grid-template-columns:repeat(2,1fr);}
+    main{padding:20px 16px 50px;}
+    .topbar{padding:14px 16px;}
+    .topbar-search{display:none;}
+    .topbar-date{display:none;}
+    .worker-grid{grid-template-columns:1fr;}
+  }
+  @media(max-width:520px){
+    .stat-grid{grid-template-columns:1fr;}
+    .quick-actions-grid{grid-template-columns:1fr 1fr;}
+    .flow-grid{grid-template-columns:1fr;}
+    #hqMap{height:380px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell" id="appShell" style="display:none;">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="name">NagarClean</div>
+      <div class="tag" data-i18n="hq_tag">Headquarters Console</div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="side-link active" data-view="overview">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+        <span data-i18n="nav_overview">Overview</span>
+      </button>
+      <button class="side-link" data-view="complaints">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke-linecap="round"/></svg>
+        <span data-i18n="nav_complaints">All Complaints</span>
+      </button>
+      <button class="side-link" data-view="zones">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.4"/></svg>
+        <span data-i18n="nav_zones">Zone Offices</span>
+      </button>
+      <button class="side-link" data-view="map">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4L3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6.5 9 4z" stroke-linejoin="round"/><path d="M9 4v14M15 6.5v14" /></svg>
+        <span data-i18n="nav_map">City Map</span>
+      </button>
+      <button class="side-link" data-view="workers">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15.5 14.3c2.6.2 4.5 2.4 4.5 5.7" stroke-linecap="round"/></svg>
+        <span data-i18n="nav_workers">Workers</span>
+      </button>
+      <button class="side-link" data-view="analytics">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M11 20V4M18 20v-7" stroke-linecap="round"/></svg>
+        <span data-i18n="nav_analytics">Analytics</span>
+      </button>
+      <button class="side-link" data-view="settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a1.7 1.7 0 000 -3l1-1.7-1.7-1.7-1.7 1a1.7 1.7 0 00-3 0l-1-1.7H9.3l-1 1.7a1.7 1.7 0 00-3 0l-1.7-1L1.9 8.8l1 1.7a1.7 1.7 0 000 3l-1 1.7 1.7 1.7 1.7-1a1.7 1.7 0 003 0l1 1.7h2.7l1-1.7a1.7 1.7 0 003 0l1.7 1 1.7-1.7z"/></svg>
+        <span data-i18n="nav_settings">Settings</span>
+      </button>
+    </nav>
+    <div class="sidebar-profile">
+      <div class="avatar" id="sidebarAvatar">A</div>
+      <div class="who">
+        <div class="n" id="sidebarAdminName">Admin</div>
+        <div class="r" data-i18n="sidebar_role">Nagar Nigam</div>
+      </div>
+      <button class="sidebar-signout" id="sidebarSignOut" title="Sign out">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <div class="sidebar-foot">
+      <div><span class="conn-dot" id="connDot"></span><span id="connLabel">—</span></div>
+      <div class="sidebar-lang">
+        <button data-lang="en">EN</button>
+        <button data-lang="hi">हिं</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-area">
+    <header class="topbar">
+      <button class="sidebar-toggle" id="sidebarToggle">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/></svg>
+      </button>
+      <h1 id="pageTitle" data-i18n="nav_overview">Overview</h1>
+      <div class="topbar-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
+        <input type="text" id="globalSearch" data-i18n-ph="search_ph">
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-date" id="topbarDate"></span>
+        <div class="notif-wrap">
+          <button class="notif-btn" id="notifBtn">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+            <span class="notif-dot" id="notifDot" style="display:none;"></span>
+          </button>
+          <div class="notif-panel" id="notifPanel"></div>
+        </div>
+        <div class="topbar-admin">
+          <div class="avatar" id="topbarAvatar">A</div>
+          <span class="name" id="topbarAdminName">Admin</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="wrap-inner">
+
+        <!-- OVERVIEW -->
+        <section class="view active" id="view-overview">
+          <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
+            <div class="stat-card-c c-red">
+              <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <div><div class="num" id="statOpen">—</div><div class="lbl" data-i18n="stat_open">Open Complaints</div></div>
+            </div>
+            <div class="stat-card-c c-orange">
+              <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M12 3L2 20h20L12 3z" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01" stroke-linecap="round"/></svg></div>
+              <div><div class="num" id="statHighPriority">—</div><div class="lbl" data-i18n="stat_high">High Priority</div></div>
+            </div>
+            <div class="stat-card-c c-green">
+              <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.2"/></svg></div>
+              <div><div class="num" id="statWorkers">—</div><div class="lbl" data-i18n="stat_workers">Total Workers</div></div>
+            </div>
+            <div class="stat-card-c c-blue">
+              <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="4" width="18" height="17" rx="2"/></svg></div>
+              <div><div class="num" id="statResolvedToday">—</div><div class="lbl" data-i18n="stat_resolved_today">Resolved Today</div></div>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <h3 style="margin:0;" data-i18n="complaints_map_title">Complaints Map</h3>
+                <button class="view-link" onclick="showView('map')" data-i18n="view_full_map">View full map ›</button>
+              </div>
+              <div id="overviewMap"></div>
+              <div class="map-legend">
+                <span><span class="dot" style="background:#C0473F;"></span><span data-i18n="prio_high">High</span></span>
+                <span><span class="dot" style="background:#D08B2B;"></span><span data-i18n="prio_medium">Medium</span></span>
+                <span><span class="dot" style="background:#2F7D5E;"></span><span data-i18n="prio_low">Low</span></span>
+              </div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <h3 style="margin:0;" data-i18n="recent_title">Recent Complaints</h3>
+                <button class="btn btn-secondary btn-sm" onclick="openAssignPicker()" data-i18n="assign_worker_btn">Assign Worker</button>
+              </div>
+              <table>
+                <thead><tr><th data-i18n="col_id">ID</th><th data-i18n="col_zone">Ward</th><th data-i18n="col_priority">Priority</th><th data-i18n="col_status">Status</th><th></th></tr></thead>
+                <tbody id="recentTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="quick-actions-grid">
+            <button class="qa-btn" onclick="showView('complaints')">
+              <span class="qa-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke-linecap="round"/></svg></span>
+              <span data-i18n="qa_view_reports">View Reports</span>
+            </button>
+            <button class="qa-btn" onclick="showView('workers')">
+              <span class="qa-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg></span>
+              <span data-i18n="qa_manage_workers">Manage Workers</span>
+            </button>
+            <button class="qa-btn" onclick="openAddComplaintModal()">
+              <span class="qa-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg></span>
+              <span data-i18n="qa_add_complaint">Add Complaint</span>
+            </button>
+            <button class="qa-btn" onclick="exportComplaintsCSV()">
+              <span class="qa-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round"/></svg></span>
+              <span data-i18n="qa_export_data">Export Data</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- ALL COMPLAINTS -->
+        <section class="view" id="view-complaints">
+          <div class="filters-row">
+            <input type="text" id="filterSearch" data-i18n-ph="filter_search_ph">
+            <select id="filterZone"><option value="" data-i18n="filter_all_zones">All zones</option></select>
+            <select id="filterStatus">
+              <option value="" data-i18n="filter_all_status">All statuses</option>
+              <option value="submitted" data-i18n="st_submitted">Submitted</option>
+              <option value="verified" data-i18n="st_verified">Verified</option>
+              <option value="assigned" data-i18n="st_assigned">Assigned</option>
+              <option value="progress" data-i18n="st_progress">In progress</option>
+              <option value="resolved" data-i18n="st_resolved">Resolved</option>
+            </select>
+          </div>
+          <div class="card">
+            <table>
+              <thead><tr>
+                <th data-i18n="col_id">ID</th><th data-i18n="col_category">Category</th><th data-i18n="col_zone">Zone</th>
+                <th data-i18n="col_status">Status</th><th data-i18n="col_sla">SLA</th><th data-i18n="col_time">Reported</th>
+              </tr></thead>
+              <tbody id="allTable"></tbody>
+            </table>
+            <div class="empty" id="allEmpty" style="display:none;" data-i18n="all_empty">No complaints match these filters.</div>
+          </div>
+        </section>
+
+        <!-- ZONE OFFICES -->
+        <section class="view" id="view-zones">
+          <div class="zone-grid" id="zoneGrid"></div>
+        </section>
+
+        <!-- CITY MAP -->
+        <section class="view" id="view-map">
+          <div class="map-toolbar">
+            <div class="map-toggle">
+              <button id="mapMarkersBtn" class="active" data-i18n="map_view_markers">Markers</button>
+              <button id="mapHeatBtn" data-i18n="map_view_heat">Heatmap</button>
+            </div>
+          </div>
+          <div id="hqMap"></div>
+          <div class="map-legend" id="mapLegend">
+            <span><span class="dot" style="background:#E08A2C;"></span><span data-i18n="map_legend_open">Open</span></span>
+            <span><span class="dot" style="background:#B5691A;"></span><span data-i18n="map_legend_progress">In progress</span></span>
+            <span><span class="dot" style="background:#2F7D5E;"></span><span data-i18n="map_legend_resolved">Resolved</span></span>
+          </div>
+        </section>
+
+        <!-- WORKERS -->
+        <section class="view" id="view-workers">
+          <div class="section-head">
+            <div><h2 data-i18n="nav_workers">Workers</h2><p data-i18n="workers_sub">Field staff available for dispatch, by zone.</p></div>
+            <button class="btn btn-primary btn-sm" onclick="openAddWorkerModal()" data-i18n="add_worker_btn">+ Add Worker</button>
+          </div>
+          <div class="worker-grid" id="workerGrid"></div>
+
+          <div class="card">
+            <h3 data-i18n="flow_title">Worker Interface — Keypad Phone, SMS &amp; IVR</h3>
+            <p style="margin-bottom:18px;" data-i18n="flow_sub">Workers without a smartphone still receive and update tasks — no app install needed.</p>
+            <div class="flow-grid">
+              <div class="flow-card">
+                <div class="flow-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="flow-step-n">01</div>
+                <h4 data-i18n="flow1_t">SMS Notification</h4>
+                <p data-i18n="flow1_b">Task ID, ward, priority, and a short description are texted to the worker's phone.</p>
+              </div>
+              <div class="flow-card">
+                <div class="flow-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3-8.7A2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .3 2 .7 3a2 2 0 01-.4 2.1L8 10.3a16 16 0 006 6l1.5-1.4a2 2 0 012.1-.4c1 .4 2 .6 3 .7a2 2 0 011.7 2z" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="flow-step-n">02</div>
+                <h4 data-i18n="flow2_t">IVR Call Flow</h4>
+                <p data-i18n="flow2_b">A voice call lets the worker press 1 to hear the task, 2 to start, 3 to mark complete.</p>
+              </div>
+              <div class="flow-card">
+                <div class="flow-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke-linecap="round"/></svg></div>
+                <div class="flow-step-n">03</div>
+                <h4 data-i18n="flow3_t">Worker Updates Status</h4>
+                <p data-i18n="flow3_b">Reply keypresses or SMS update the task to "started" or "completed" in real time.</p>
+              </div>
+              <div class="flow-card">
+                <div class="flow-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="flow-step-n">04</div>
+                <h4 data-i18n="flow4_t">Supervisor Verification</h4>
+                <p data-i18n="flow4_b">HQ or the zone office confirms the after-photo and closes the complaint.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ANALYTICS -->
+        <section class="view" id="view-analytics">
+          <div class="analytics-dark-card">
+            <div class="an-head">
+              <h2><span class="an-head-icon">📊</span> <span data-i18n="an_title">Progress Analytics</span></h2>
+              <div class="live-indicator"><span class="live-dot" id="analyticsLiveDot"></span><span id="analyticsLiveLabel">Live</span> · <span data-i18n="an_updated">updated</span> <span id="analyticsUpdatedAt">—</span></div>
+            </div>
+
+            <div class="an-stat-row">
+              <div class="an-stat"><div class="n" id="anTotal">—</div><div class="l" data-i18n="an_total">TOTAL REPORTS</div></div>
+              <div class="an-stat"><div class="n" id="anCompleted">—</div><div class="l" data-i18n="an_completed">COMPLETED</div></div>
+              <div class="an-stat"><div class="n" id="anPending">—</div><div class="l" data-i18n="an_pending">PENDING</div></div>
+            </div>
+
+            <div class="an-chart-grid">
+              <div class="an-card">
+                <h3 data-i18n="an_status_breakdown">Status Breakdown</h3>
+                <canvas id="statusChart" height="220"></canvas>
+              </div>
+              <div class="an-card">
+                <h3 data-i18n="an_waste_breakdown">Waste Type Breakdown</h3>
+                <canvas id="wasteChart" height="220"></canvas>
+              </div>
+              <div class="an-card">
+                <h3 data-i18n="an_trend">Reports Trend (last 14 days)</h3>
+                <canvas id="trendChart" height="220"></canvas>
+              </div>
+            </div>
+
+            <div class="an-card" style="margin-top:16px;">
+              <h3 data-i18n="an_worker_perf">Worker Performance</h3>
+              <canvas id="workerChart" height="140"></canvas>
+            </div>
+
+            <div class="an-card" style="margin-top:16px;">
+              <h3 data-i18n="an_recent_activity">Recent Activity</h3>
+              <div id="activityFeed"></div>
+              <div class="empty" id="activityEmpty" style="display:none;" data-i18n="an_no_activity">No activity yet.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SETTINGS -->
+        <section class="view" id="view-settings">
+          <div class="section-head"><div><h2 data-i18n="nav_settings">Settings</h2><p data-i18n="settings_sub">Console preferences for this browser session.</p></div></div>
+          <div class="card" style="max-width:480px;">
+            <h3 data-i18n="settings_account_title">Account</h3>
+            <div class="kv"><span data-i18n="f_name">Name</span><span id="settingsName">—</span></div>
+            <div class="kv"><span data-i18n="f_email">Email</span><span id="settingsEmail">—</span></div>
+            <hr class="divider">
+            <h3 data-i18n="settings_backend_title">Backend connection</h3>
+            <div class="kv"><span data-i18n="settings_backend_url">API URL</span><span class="mono">http://localhost:4000</span></div>
+            <div class="kv"><span data-i18n="settings_backend_status">Status</span><span><span class="conn-dot" id="settingsConnDot"></span><span id="settingsConnLabel">—</span></span></div>
+            <p class="hint" style="font-size:12px;margin-top:10px;" data-i18n="settings_backend_note">To change this, edit the API_BASE constant near the top of this file's script.</p>
+            <hr class="divider">
+            <button class="btn btn-outline btn-block" id="settingsSignOut" data-i18n="sign_out">Sign Out</button>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ADD WORKER MODAL -->
+<div class="modal-overlay" id="addWorkerModal">
+  <div class="modal-box" style="max-width:420px;">
+    <button class="modal-close" onclick="closeModal('addWorkerModal')">&times;</button>
+    <h2 data-i18n="add_worker_title">Add a worker</h2>
+    <div class="banner banner-error" id="addWorkerErr"></div>
+    <label data-i18n="f_name">Name</label>
+    <input type="text" id="aw-name">
+    <label data-i18n="f_phone">Phone number</label>
+    <input type="text" id="aw-phone" placeholder="9XXXXXXXXX">
+    <label data-i18n="f_phone_type">Phone type</label>
+    <select id="aw-phonetype">
+      <option value="smartphone" data-i18n="phone_smart">Smartphone (app)</option>
+      <option value="keypad" data-i18n="phone_keypad">Keypad (SMS / IVR)</option>
+    </select>
+    <label data-i18n="f_zone">Zone</label>
+    <select id="aw-zone"></select>
+    <button class="btn btn-primary btn-block" style="margin-top:20px;" onclick="saveNewWorker()" data-i18n="add_worker_btn">+ Add Worker</button>
+  </div>
+</div>
+
+<!-- ADD COMPLAINT (manual log) MODAL -->
+<div class="modal-overlay" id="addComplaintModal">
+  <div class="modal-box" style="max-width:440px;">
+    <button class="modal-close" onclick="closeModal('addComplaintModal')">&times;</button>
+    <h2 data-i18n="add_complaint_title">Log a complaint manually</h2>
+    <p class="hint" data-i18n="add_complaint_sub" style="margin-top:-6px;">For reports received by phone call or in person.</p>
+    <label data-i18n="col_category">Category</label>
+    <select id="ac-category">
+      <option value="garbage" data-i18n="cat_garbage">Garbage overflow</option>
+      <option value="sewage" data-i18n="cat_sewage">Sewage leakage</option>
+      <option value="dumping" data-i18n="cat_dumping">Illegal dumping</option>
+      <option value="drainage" data-i18n="cat_drainage">Waterlogging / drainage</option>
+      <option value="toilet" data-i18n="cat_toilet">Public toilet issue</option>
+      <option value="sweeping" data-i18n="cat_sweeping">Street cleaning</option>
+    </select>
+    <label data-i18n="label_description">Description</label>
+    <textarea id="ac-desc" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;min-height:70px;"></textarea>
+    <label data-i18n="f_zone">Zone</label>
+    <select id="ac-zone"></select>
+    <label data-i18n="label_reporter">Reporter name (optional)</label>
+    <input type="text" id="ac-name">
+    <button class="btn btn-primary btn-block" style="margin-top:20px;" onclick="saveManualComplaint()" data-i18n="add_complaint_save">Log complaint</button>
+  </div>
+</div>
+
+<!-- ASSIGN WORKER PICKER MODAL (from Recent Complaints quick action) -->
+<div class="modal-overlay" id="assignPickerModal">
+  <div class="modal-box" style="max-width:440px;">
+    <button class="modal-close" onclick="closeModal('assignPickerModal')">&times;</button>
+    <h2 data-i18n="assign_worker_btn">Assign Worker</h2>
+    <label data-i18n="assign_pick_complaint">Complaint</label>
+    <select id="ap-complaint"></select>
+    <label data-i18n="assign_pick_worker">Worker</label>
+    <select id="ap-worker"></select>
+    <button class="btn btn-primary btn-block" style="margin-top:20px;" onclick="confirmAssignPicker()" data-i18n="assign_worker_btn">Assign Worker</button>
+  </div>
+</div>
+
+<!-- COMPLAINT DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal-box" id="detailBox"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+/* =================== CONFIG =================== */
+// Same backend as the public site — this is the actual sync mechanism.
+// Run server/server.js from the NagarClean full-stack package and both
+// pages will show the same live data automatically.
+const API_BASE = window.location.protocol === 'http:' || window.location.protocol === 'https:' ? window.location.origin : 'http://localhost:4000';
+
+/* =================== i18n =================== */
+const DICT = {
+  en: {
+    hq_tag:'Headquarters Console',
+    nav_overview:'Overview', nav_complaints:'All Complaints', nav_zones:'Zone Offices', nav_map:'City Map', nav_workers:'Workers', nav_analytics:'Analytics', nav_settings:'Settings',
+    search_ph:'Search reports…',
+    sidebar_role:'Nagar Nigam',
+    stat_total:'Total reports', stat_pending:'Awaiting verification', stat_active:'In progress at zones', stat_resolved:'Resolved', stat_breach:'SLA breaches',
+    stat_open:'Open Complaints', stat_high:'High Priority', stat_workers:'Total Workers', stat_resolved_today:'Resolved Today',
+    incoming_title:'Incoming — needs HQ verification', incoming_empty:'Nothing waiting on verification right now.',
+    byzone_title:'Reports by zone',
+    complaints_map_title:'Complaints Map', view_full_map:'View full map ›', recent_title:'Recent Complaints',
+    prio_high:'High', prio_medium:'Medium', prio_low:'Low', col_priority:'Priority',
+    assign_worker_btn:'Assign Worker', assign_pick_complaint:'Complaint', assign_pick_worker:'Worker',
+    qa_view_reports:'View Reports', qa_manage_workers:'Manage Workers', qa_add_complaint:'Add Complaint', qa_export_data:'Export Data',
+    col_id:'ID', col_category:'Category', col_zone:'Zone', col_status:'Status', col_sla:'SLA', col_time:'Reported',
+    filter_search_ph:'Search by ID or description…', filter_all_zones:'All zones', filter_all_status:'All statuses',
+    all_empty:'No complaints match these filters.',
+    st_submitted:'Submitted', st_verified:'Verified', st_assigned:'Assigned', st_progress:'In progress', st_resolved:'Resolved',
+    sla_ok:'On time', sla_warn:'Deadline near', sla_breach:'SLA breached',
+    cat_garbage:'Garbage overflow', cat_sewage:'Sewage leakage', cat_dumping:'Illegal dumping',
+    cat_drainage:'Waterlogging / drainage', cat_toilet:'Public toilet issue', cat_sweeping:'Street cleaning',
+    map_view_markers:'Markers', map_view_heat:'Heatmap',
+    map_legend_open:'Open', map_legend_progress:'In progress', map_legend_resolved:'Resolved',
+    conn_live:'Connected to live backend', conn_demo:'Backend not found — showing demo data',
+    verify_btn:'Verify & forward to suggested zone', reassign_label:'Or forward to a different zone office',
+    reassign_btn:'Forward', vehicle_btn:'Dispatch vehicle', worker_btn:'Dispatch worker',
+    progress_btn:'Mark work in progress', resolve_btn:'Mark resolved',
+    label_description:'Description', label_reporter:'Reporter', label_zone:'Zone', label_location:'Location', label_assigned:'Assigned to',
+    anonymous:'Anonymous', no_photo:'No photo attached',
+    action_done:'Updated.',
+    zone_hours:'Mon–Sat, 10 AM – 5 PM', zone_reports:'Reports', zone_pending:'Pending', zone_resolved:'Resolved',
+    workers_sub:'Field staff available for dispatch, by zone.', add_worker_btn:'+ Add Worker', add_worker_title:'Add a worker',
+    f_name:'Name', f_email:'Email', f_password:'Password', f_phone:'Phone number', f_phone_type:'Phone type', f_zone:'Zone',
+    phone_smart:'Smartphone (app)', phone_keypad:'Keypad (SMS / IVR)',
+    worker_status_avail:'Available', worker_status_busy:'Busy', worker_assigned_count:'active tasks',
+    flow_title:'Worker Interface — Keypad Phone, SMS & IVR', flow_sub:'Workers without a smartphone still receive and update tasks — no app install needed.',
+    flow1_t:'SMS Notification', flow1_b:'Task ID, ward, priority, and a short description are texted to the worker\'s phone.',
+    flow2_t:'IVR Call Flow', flow2_b:'A voice call lets the worker press 1 to hear the task, 2 to start, 3 to mark complete.',
+    flow3_t:'Worker Updates Status', flow3_b:'Reply keypresses or SMS update the task to "started" or "completed" in real time.',
+    flow4_t:'Supervisor Verification', flow4_b:'HQ or the zone office confirms the after-photo and closes the complaint.',
+    settings_sub:'Console preferences for this browser session.', settings_account_title:'Account',
+    settings_backend_title:'Backend connection', settings_backend_url:'API URL', settings_backend_status:'Status',
+    settings_backend_note:'To change this, edit the API_BASE constant near the top of this file\'s script.',
+    add_complaint_title:'Log a complaint manually', add_complaint_sub:'For reports received by phone call or in person.', add_complaint_save:'Log complaint',
+    sign_in:'Sign In', sign_up:'Sign Up', sign_out:'Sign Out', signup_create_btn:'Create account',
+    auth_demo_note:'Demo login — accounts are stored only in this browser. Don\'t use a real password.',
+    auth_err_required:'Please fill in every field.', auth_err_email_exists:'An account with this email already exists — try signing in instead.',
+    auth_err_invalid_login:'Email or password is incorrect.',
+    an_title:'Progress Analytics', an_updated:'updated',
+    an_total:'TOTAL REPORTS', an_completed:'COMPLETED', an_pending:'PENDING',
+    an_status_breakdown:'Status Breakdown', an_waste_breakdown:'Waste Type Breakdown', an_trend:'Reports Trend (last 14 days)',
+    an_worker_perf:'Worker Performance', an_recent_activity:'Recent Activity', an_no_activity:'No activity yet.',
+  },
+  hi: {
+    hq_tag:'मुख्यालय कंसोल',
+    nav_overview:'सारांश', nav_complaints:'सभी शिकायतें', nav_zones:'ज़ोन कार्यालय', nav_map:'शहर का नक़्शा', nav_workers:'कर्मचारी', nav_analytics:'एनालिटिक्स', nav_settings:'सेटिंग्स',
+    search_ph:'शिकायतें खोजें…',
+    sidebar_role:'नगर निगम',
+    stat_total:'कुल शिकायतें', stat_pending:'सत्यापन बाकी', stat_active:'ज़ोन में कार्य जारी', stat_resolved:'हल हो गईं', stat_breach:'SLA चूक',
+    stat_open:'खुली शिकायतें', stat_high:'उच्च प्राथमिकता', stat_workers:'कुल कर्मचारी', stat_resolved_today:'आज हल हुईं',
+    incoming_title:'नई — HQ सत्यापन की प्रतीक्षा में', incoming_empty:'फ़िलहाल सत्यापन के लिए कुछ भी नहीं है।',
+    byzone_title:'ज़ोन-वार शिकायतें',
+    complaints_map_title:'शिकायतों का नक़्शा', view_full_map:'पूरा नक़्शा देखें ›', recent_title:'हाल की शिकायतें',
+    prio_high:'उच्च', prio_medium:'मध्यम', prio_low:'निम्न', col_priority:'प्राथमिकता',
+    assign_worker_btn:'कर्मचारी असाइन करें', assign_pick_complaint:'शिकायत', assign_pick_worker:'कर्मचारी',
+    qa_view_reports:'रिपोर्ट देखें', qa_manage_workers:'कर्मचारी प्रबंधित करें', qa_add_complaint:'शिकायत जोड़ें', qa_export_data:'डेटा एक्सपोर्ट करें',
+    col_id:'ID', col_category:'श्रेणी', col_zone:'ज़ोन', col_status:'स्थिति', col_sla:'SLA', col_time:'दर्ज हुई',
+    filter_search_ph:'ID या विवरण से खोजें…', filter_all_zones:'सभी ज़ोन', filter_all_status:'सभी स्थितियां',
+    all_empty:'इन फ़िल्टर से कोई शिकायत मेल नहीं खाती।',
+    st_submitted:'दर्ज हुई', st_verified:'सत्यापित', st_assigned:'असाइन हुई', st_progress:'कार्य जारी', st_resolved:'हल हो गई',
+    sla_ok:'समय पर', sla_warn:'समय सीमा नज़दीक', sla_breach:'SLA चूक',
+    cat_garbage:'कूड़ा जमा / ओवरफ्लो', cat_sewage:'सीवेज लीकेज', cat_dumping:'अवैध कूड़ा डंपिंग',
+    cat_drainage:'जलभराव / नाली जाम', cat_toilet:'सार्वजनिक शौचालय की समस्या', cat_sweeping:'सड़क की सफाई',
+    map_view_markers:'मार्कर', map_view_heat:'हीटमैप',
+    map_legend_open:'खुली हुई', map_legend_progress:'कार्य जारी', map_legend_resolved:'हल हो गई',
+    conn_live:'लाइव बैकएंड से जुड़ा है', conn_demo:'बैकएंड नहीं मिला — डेमो डेटा दिखाया जा रहा है',
+    verify_btn:'सत्यापित करें और सुझाए गए ज़ोन को भेजें', reassign_label:'या किसी दूसरे ज़ोन कार्यालय को भेजें',
+    reassign_btn:'भेजें', vehicle_btn:'वाहन भेजें', worker_btn:'कर्मचारी भेजें',
+    progress_btn:'कार्य जारी के रूप में चिन्हित करें', resolve_btn:'हल के रूप में चिन्हित करें',
+    label_description:'विवरण', label_reporter:'रिपोर्ट करने वाला', label_zone:'ज़ोन', label_location:'लोकेशन', label_assigned:'असाइन',
+    anonymous:'गुमनाम', no_photo:'कोई फोटो अपलोड नहीं हुई',
+    action_done:'अपडेट हो गया।',
+    zone_hours:'सोम–शनि, सुबह 10 – शाम 5 बजे', zone_reports:'शिकायतें', zone_pending:'बाकी', zone_resolved:'हल हुईं',
+    workers_sub:'ज़ोन के अनुसार डिस्पैच के लिए उपलब्ध फील्ड स्टाफ।', add_worker_btn:'+ कर्मचारी जोड़ें', add_worker_title:'नया कर्मचारी जोड़ें',
+    f_name:'नाम', f_email:'ईमेल', f_password:'पासवर्ड', f_phone:'फ़ोन नंबर', f_phone_type:'फ़ोन का प्रकार', f_zone:'ज़ोन',
+    phone_smart:'स्मार्टफोन (ऐप)', phone_keypad:'कीपैड (SMS / IVR)',
+    worker_status_avail:'उपलब्ध', worker_status_busy:'व्यस्त', worker_assigned_count:'सक्रिय कार्य',
+    flow_title:'कर्मचारी इंटरफ़ेस — कीपैड फ़ोन, SMS और IVR', flow_sub:'बिना स्मार्टफोन वाले कर्मचारी भी काम पाते और अपडेट करते हैं — किसी ऐप की ज़रूरत नहीं।',
+    flow1_t:'SMS सूचना', flow1_b:'टास्क ID, वार्ड, प्राथमिकता और छोटा विवरण कर्मचारी के फ़ोन पर SMS से भेजा जाता है।',
+    flow2_t:'IVR कॉल फ़्लो', flow2_b:'वॉइस कॉल पर कर्मचारी 1 दबाकर टास्क सुन सकता है, 2 से शुरू, 3 से पूरा चिन्हित कर सकता है।',
+    flow3_t:'कर्मचारी स्थिति अपडेट करता है', flow3_b:'कीपैड दबाने या SMS से टास्क "शुरू" या "पूरा" के रूप में तुरंत अपडेट होता है।',
+    flow4_t:'सुपरवाइज़र सत्यापन', flow4_b:'HQ या ज़ोन कार्यालय बाद की फोटो देखकर शिकायत बंद करता है।',
+    settings_sub:'इस ब्राउज़र सेशन के लिए कंसोल प्राथमिकताएं।', settings_account_title:'खाता',
+    settings_backend_title:'बैकएंड कनेक्शन', settings_backend_url:'API URL', settings_backend_status:'स्थिति',
+    settings_backend_note:'इसे बदलने के लिए, इस फ़ाइल की स्क्रिप्ट के ऊपर मौजूद API_BASE constant बदलें।',
+    add_complaint_title:'शिकायत मैन्युअल रूप से दर्ज करें', add_complaint_sub:'फ़ोन कॉल या व्यक्तिगत रूप से मिली शिकायतों के लिए।', add_complaint_save:'शिकायत दर्ज करें',
+    sign_in:'साइन इन', sign_up:'साइन अप', sign_out:'साइन आउट', signup_create_btn:'खाता बनाएं',
+    auth_demo_note:'डेमो लॉगिन — खाते सिर्फ इस ब्राउज़र में सेव होते हैं। असली पासवर्ड इस्तेमाल न करें।',
+    auth_err_required:'कृपया सभी फ़ील्ड भरें।', auth_err_email_exists:'इस ईमेल से पहले से खाता मौजूद है — कृपया साइन इन करें।',
+    auth_err_invalid_login:'ईमेल या पासवर्ड गलत है।',
+    an_title:'प्रगति एनालिटिक्स', an_updated:'अपडेट हुआ',
+    an_total:'कुल शिकायतें', an_completed:'पूरी हुईं', an_pending:'बाकी',
+    an_status_breakdown:'स्थिति का विभाजन', an_waste_breakdown:'कूड़े के प्रकार का विभाजन', an_trend:'शिकायतों का रुझान (पिछले 14 दिन)',
+    an_worker_perf:'कर्मचारी प्रदर्शन', an_recent_activity:'हाल की गतिविधि', an_no_activity:'अभी तक कोई गतिविधि नहीं।',
+  }
+};
+function getLang(){ return localStorage.getItem('nc_hq_lang') || 'hi'; }
+function setLang(lang){ localStorage.setItem('nc_hq_lang', lang); applyLang(); }
+function t(key){ const lang = getLang(); return (DICT[lang] && DICT[lang][key]) || DICT.en[key] || key; }
+function applyLang(){
+  const lang = getLang();
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.getAttribute('data-i18n')));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => el.setAttribute('placeholder', t(el.getAttribute('data-i18n-ph'))));
+  document.querySelectorAll('.sidebar-lang button').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  // Before login the dashboard (and its maps/charts) sit hidden behind the
+  // auth gate — rendering them now would initialize Leaflet against a
+  // 0-size container, a common source of grey/broken tiles. Text labels on
+  // the login screen still need translating, so only the heavy render is
+  // skipped, not the whole function.
+  if(document.getElementById('appShell').style.display === 'none') return;
+  document.getElementById('pageTitle').textContent = t('nav_' + currentView);
+  renderConnLabel();
+  populateZoneFilter();
+  renderAll();
+}
+
+/* =================== DATA =================== */
+const ZONES = [
+  { id:'Z1', name_en:'Zone 1 — Dashashwamedh', name_hi:'ज़ोन 1 — दशाश्वमेध', lat:25.3070, lng:83.0105 },
+  { id:'Z2', name_en:'Zone 2 — Sigra',          name_hi:'ज़ोन 2 — सिगरा',      lat:25.3106, lng:82.9878 },
+  { id:'Z3', name_en:'Zone 3 — Bhelupur',        name_hi:'ज़ोन 3 — भेलूपुर',    lat:25.2925, lng:83.0018 },
+  { id:'Z4', name_en:'Zone 4 — Manduadih',       name_hi:'ज़ोन 4 — मंडुआडीह',   lat:25.3376, lng:82.9863 },
+];
+function hoursAgo(h){ return new Date(Date.now() - h*3600*1000).toISOString(); }
+function seedData(){
+  const rows = [
+    {zone:'Z1', cat:'garbage',  status:'submitted', hrs:2},
+    {zone:'Z1', cat:'dumping',  status:'progress',  hrs:30},
+    {zone:'Z2', cat:'sewage',   status:'submitted', hrs:5},
+    {zone:'Z2', cat:'garbage',  status:'resolved',  hrs:70},
+    {zone:'Z3', cat:'drainage', status:'verified',  hrs:12},
+    {zone:'Z3', cat:'garbage',  status:'submitted', hrs:55},
+    {zone:'Z4', cat:'toilet',   status:'resolved',  hrs:90},
+    {zone:'Z4', cat:'sweeping', status:'assigned',  hrs:8},
+  ];
+  return rows.map((r,i)=>{
+    const z = ZONES.find(zz=>zz.id===r.zone);
+    return {
+      id:'seed-'+i, code:'NC-VNS-2026-'+String(i+1).padStart(5,'0'),
+      category:r.cat, description:'Demo sample report for HQ review', name: i%2===0?'':'Resident '+(i+1),
+      lat:z.lat, lng:z.lng, zone:z.id, photo:null,
+      status:r.status, createdAt:hoursAgo(r.hrs),
+      assignedTo: (r.status==='assigned'||r.status==='progress'||r.status==='resolved') ? 'UP65-AB-'+(1000+i) : null,
+    };
+  });
+}
+let complaints = seedData();
+let usingLiveData = false;
+const SLA_HOURS = 48;
+
+function slaState(c){
+  if(c.status === 'resolved') return 'ok';
+  const hrs = (Date.now() - new Date(c.createdAt).getTime()) / 3600000;
+  if(hrs > SLA_HOURS) return 'breach';
+  if(hrs > SLA_HOURS*0.75) return 'warn';
+  return 'ok';
+}
+function zoneObj(id){ return ZONES.find(z=>z.id===id); }
+function zoneName(id){ const z = zoneObj(id); return z ? (getLang()==='hi'?z.name_hi:z.name_en) : id; }
+function fmtTime(iso){
+  const d = new Date(iso);
+  const locale = getLang()==='hi' ? 'hi-IN' : 'en-IN';
+  return d.toLocaleDateString(locale,{day:'2-digit',month:'short'}) + ', ' + d.toLocaleTimeString(locale,{hour:'2-digit',minute:'2-digit'});
+}
+// Priority is derived, not stored: SLA state dominates (a breaching report is
+// always high priority), and category severity breaks ties for reports that
+// are still on time — sewage/drainage/dumping read as more urgent than a
+// routine sweeping report.
+const CATEGORY_WEIGHT = { sewage:3, drainage:3, dumping:2, toilet:2, garbage:1, sweeping:1 };
+function derivePriority(c){
+  const sla = slaState(c);
+  if(sla === 'breach') return 'high';
+  const w = CATEGORY_WEIGHT[c.category] || 1;
+  if(sla === 'warn' && w >= 2) return 'high';
+  if(w >= 3 || sla === 'warn') return 'medium';
+  return 'low';
+}
+
+/* =================== WORKERS =================== */
+function seedWorkers(){
+  return [
+    { id:'w1', name:'Ravi Kumar',   phone:'9876500001', phoneType:'smartphone', zone:'Z1', status:'available' },
+    { id:'w2', name:'Sunita Devi',  phone:'9876500002', phoneType:'keypad',     zone:'Z1', status:'busy' },
+    { id:'w3', name:'Amit Yadav',   phone:'9876500003', phoneType:'smartphone', zone:'Z2', status:'available' },
+    { id:'w4', name:'Pooja Singh',  phone:'9876500004', phoneType:'keypad',     zone:'Z3', status:'available' },
+    { id:'w5', name:'Deepak Verma', phone:'9876500005', phoneType:'keypad',     zone:'Z4', status:'busy' },
+    { id:'w6', name:'Neha Gupta',   phone:'9876500006', phoneType:'smartphone', zone:'Z2', status:'available' },
+  ];
+}
+function loadWorkers(){ try{ return JSON.parse(localStorage.getItem('nc_hq_workers')) || seedWorkers(); }catch(e){ return seedWorkers(); } }
+function saveWorkers(list){ localStorage.setItem('nc_hq_workers', JSON.stringify(list)); }
+let workers = loadWorkers();
+
+async function loadData(){
+  try{
+    const res = await fetch(API_BASE + '/api/complaints', { credentials:'include', signal: AbortSignal.timeout(2500) });
+    if(!res.ok) throw new Error('bad_status');
+    const rows = await res.json();
+    if(Array.isArray(rows)){ complaints = rows; usingLiveData = true; }
+  }catch(e){ usingLiveData = false; }
+  renderConnLabel();
+  renderAll();
+}
+function renderConnLabel(){
+  document.getElementById('connDot').className = 'conn-dot ' + (usingLiveData ? 'live' : 'demo');
+  document.getElementById('connLabel').textContent = usingLiveData ? t('conn_live') : t('conn_demo');
+}
+
+/* =================== NAV / VIEW SWITCHING =================== */
+let currentView = 'overview';
+function showView(view){
+  currentView = view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-'+view).classList.add('active');
+  document.querySelectorAll('.side-link').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.getElementById('pageTitle').textContent = t('nav_' + view);
+  document.getElementById('sidebar').classList.remove('open');
+  if(view === 'map'){ initMapIfNeeded(); setTimeout(()=>{ if(hqMap) hqMap.invalidateSize(); }, 60); renderMapLayers(); }
+  if(view === 'overview'){ setTimeout(()=>{ if(overviewMap) overviewMap.invalidateSize(); }, 60); }
+  if(view === 'workers'){ renderWorkers(); }
+  if(view === 'settings'){ renderSettings(); }
+  if(view === 'analytics'){
+    renderAnalytics();
+    if(analyticsInterval) clearInterval(analyticsInterval);
+    analyticsInterval = setInterval(tickAnalyticsClock, 1000);
+  } else if(analyticsInterval){
+    clearInterval(analyticsInterval);
+    analyticsInterval = null;
+  }
+}
+document.querySelectorAll('.side-link').forEach(b => b.addEventListener('click', ()=>showView(b.dataset.view)));
+document.getElementById('sidebarToggle').addEventListener('click', ()=>{
+  document.getElementById('sidebar').classList.toggle('open');
+});
+
+/* =================== RENDER: OVERVIEW =================== */
+let overviewMap, overviewMarkers = [];
+function initOverviewMapIfNeeded(){
+  if(overviewMap) return;
+  try{
+    overviewMap = L.map('overviewMap', { scrollWheelZoom:false }).setView([25.3176, 82.9739], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'&copy; OpenStreetMap', maxZoom:19 }).addTo(overviewMap);
+    setTimeout(()=>overviewMap.invalidateSize(), 150);
+  }catch(e){
+    document.getElementById('overviewMap').innerHTML = '<div class="empty">Map failed to load.</div>';
+  }
+}
+function priorityColor(p){ return p==='high' ? '#C0473F' : (p==='medium' ? '#D08B2B' : '#2F7D5E'); }
+function renderOverviewMap(){
+  if(!overviewMap) return;
+  overviewMarkers.forEach(m=>overviewMap.removeLayer(m));
+  overviewMarkers = [];
+  complaints.filter(c=>c.status!=='resolved').forEach(c=>{
+    const color = priorityColor(derivePriority(c));
+    const m = L.circleMarker([c.lat,c.lng], { radius:7, color, fillColor:color, fillOpacity:.8, weight:1 })
+      .addTo(overviewMap).bindPopup('<strong>'+c.code+'</strong><br>'+t('cat_'+c.category));
+    overviewMarkers.push(m);
+  });
+  overviewMap.invalidateSize();
+}
+function renderOverview(){
+  document.getElementById('statOpen').textContent = complaints.filter(c=>c.status!=='resolved').length;
+  document.getElementById('statHighPriority').textContent = complaints.filter(c=>c.status!=='resolved' && derivePriority(c)==='high').length;
+  document.getElementById('statWorkers').textContent = workers.length;
+  const todayStr = new Date().toDateString();
+  document.getElementById('statResolvedToday').textContent = complaints.filter(c=>c.status==='resolved' && new Date(c.resolvedAt||c.createdAt).toDateString()===todayStr).length;
+
+  const recent = complaints.slice().sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const tbody = document.getElementById('recentTable');
+  tbody.innerHTML = '';
+  recent.slice(0,8).forEach(c=>{
+    const prio = derivePriority(c);
+    const tr = document.createElement('tr');
+    tr.className = 'row-clickable';
+    tr.innerHTML = '<td class="row-id">'+c.code+'</td><td>'+zoneName(c.zone)+'</td>'+
+      '<td><span class="badge badge-prio-'+prio+'">'+t('prio_'+prio)+'</span></td>'+
+      '<td><span class="badge badge-'+c.status+'">'+t('st_'+c.status)+'</span></td>'+
+      '<td><button class="view-link" onclick="event.stopPropagation();openDetail(\''+c.id+'\')">'+ (getLang()==='hi'?'देखें':'View') +'</button></td>';
+    tr.onclick = ()=>openDetail(c.id);
+    tbody.appendChild(tr);
+  });
+
+  initOverviewMapIfNeeded();
+  renderOverviewMap();
+  renderNotifications();
+}
+
+/* =================== RENDER: WORKERS =================== */
+function renderWorkers(){
+  document.getElementById('workerGrid').innerHTML = workers.map(w=>{
+    const activeTasks = complaints.filter(c=>c.assignedTo===w.name && (c.status==='assigned'||c.status==='progress')).length;
+    return '<div class="worker-card">'+
+      '<div class="top-row"><div><div class="w-name">'+w.name+'</div><div class="w-phone mono">'+w.phone+'</div></div>'+
+      '<span class="phone-tag '+(w.phoneType==='keypad'?'keypad':'')+'">'+t(w.phoneType==='keypad'?'phone_keypad':'phone_smart')+'</span></div>'+
+      '<div class="w-meta"><span class="status-dot '+(w.status==='available'?'avail':'busy')+'"></span>'+t('worker_status_'+w.status)+
+      ' · '+zoneName(w.zone)+' · '+activeTasks+' '+t('worker_assigned_count')+'</div>'+
+    '</div>';
+  }).join('');
+}
+function populateZoneSelect(id){
+  document.getElementById(id).innerHTML = ZONES.map(z=>'<option value="'+z.id+'">'+(getLang()==='hi'?z.name_hi:z.name_en)+'</option>').join('');
+}
+function openAddWorkerModal(){
+  document.getElementById('addWorkerErr').classList.remove('show');
+  document.getElementById('aw-name').value = '';
+  document.getElementById('aw-phone').value = '';
+  populateZoneSelect('aw-zone');
+  openModal('addWorkerModal');
+}
+function saveNewWorker(){
+  const name = document.getElementById('aw-name').value.trim();
+  const phone = document.getElementById('aw-phone').value.trim();
+  const phoneType = document.getElementById('aw-phonetype').value;
+  const zone = document.getElementById('aw-zone').value;
+  if(!name || !phone){ const b=document.getElementById('addWorkerErr'); b.textContent=t('auth_err_required'); b.classList.add('show'); return; }
+  workers.push({ id:'w'+Date.now(), name, phone, phoneType, zone, status:'available' });
+  saveWorkers(workers);
+  closeModal('addWorkerModal');
+  renderWorkers();
+  renderOverview();
+}
+
+/* =================== RENDER: ALL COMPLAINTS ===================== */
+function populateZoneFilter(){
+  const sel = document.getElementById('filterZone');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">'+t('filter_all_zones')+'</option>' +
+    ZONES.map(z=>'<option value="'+z.id+'">'+(getLang()==='hi'?z.name_hi:z.name_en)+'</option>').join('');
+  sel.value = current;
+}
+function renderAllTable(){
+  const zoneF = document.getElementById('filterZone').value;
+  const statusF = document.getElementById('filterStatus').value;
+  const searchF = document.getElementById('filterSearch').value.trim().toLowerCase();
+  let rows = complaints.filter(c=>{
+    if(zoneF && c.zone !== zoneF) return false;
+    if(statusF && c.status !== statusF) return false;
+    if(searchF && !(c.code.toLowerCase().includes(searchF) || (c.description||'').toLowerCase().includes(searchF))) return false;
+    return true;
+  }).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+
+  const tbody = document.getElementById('allTable');
+  tbody.innerHTML = '';
+  document.getElementById('allEmpty').style.display = rows.length ? 'none' : 'block';
+  rows.forEach(c=>{
+    const sla = slaState(c);
+    const tr = document.createElement('tr');
+    tr.className = 'row-clickable';
+    tr.innerHTML = '<td class="row-id">'+c.code+'</td><td>'+t('cat_'+c.category)+'</td><td>'+zoneName(c.zone)+'</td>'+
+      '<td><span class="badge badge-'+c.status+'">'+t('st_'+c.status)+'</span></td>'+
+      '<td><span class="badge badge-sla-'+sla+'">'+t('sla_'+sla)+'</span></td>'+
+      '<td style="color:var(--ink-faint);font-size:12.5px;">'+fmtTime(c.createdAt)+'</td>';
+    tr.onclick = ()=>openDetail(c.id);
+    tbody.appendChild(tr);
+  });
+}
+['filterZone','filterStatus'].forEach(id=>document.getElementById(id).addEventListener('change', renderAllTable));
+document.getElementById('filterSearch').addEventListener('input', renderAllTable);
+document.getElementById('globalSearch').addEventListener('input', e=>{
+  showView('complaints');
+  document.getElementById('filterSearch').value = e.target.value;
+  renderAllTable();
+});
+
+/* =================== RENDER: ZONES =================== */
+function renderZoneCards(){
+  document.getElementById('zoneGrid').innerHTML = ZONES.map(z=>{
+    const rows = complaints.filter(c=>c.zone===z.id);
+    const pending = rows.filter(c=>c.status!=='resolved').length;
+    const resolved = rows.filter(c=>c.status==='resolved').length;
+    return '<div class="zone-card">'+
+      '<h3>'+(getLang()==='hi'?z.name_hi:z.name_en)+'</h3>'+
+      '<div class="hours">'+t('zone_hours')+'</div>'+
+      '<div class="zone-stat-row">'+
+        '<div><span class="n">'+rows.length+'</span>'+t('zone_reports')+'</div>'+
+        '<div><span class="n">'+pending+'</span>'+t('zone_pending')+'</div>'+
+        '<div><span class="n">'+resolved+'</span>'+t('zone_resolved')+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+/* =================== ANALYTICS (live, Chart.js) =================== */
+const STATUS_COLORS = { submitted:'#E0B15A', verified:'#6FD1C8', assigned:'#B49CF0', progress:'#F0B429', resolved:'#6FE0A0' };
+const CHART_TEXT_COLOR = '#9AA39C';
+const CHART_GRID_COLOR = 'rgba(255,255,255,0.08)';
+let statusChart, wasteChart, trendChart, workerChart;
+let analyticsInterval = null;
+
+function initAnalyticsCharts(){
+  if(statusChart) return; // charts are created once, then updated in place
+  Chart.defaults.color = CHART_TEXT_COLOR;
+  Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+
+  statusChart = new Chart(document.getElementById('statusChart'), {
+    type:'doughnut',
+    data:{ labels:[], datasets:[{ data:[], backgroundColor:[], borderWidth:0 }] },
+    options:{ plugins:{ legend:{ position:'bottom' } }, cutout:'55%' }
+  });
+  wasteChart = new Chart(document.getElementById('wasteChart'), {
+    type:'bar',
+    data:{ labels:[], datasets:[{ data:[], backgroundColor:'#4A9FDE', borderRadius:4 }] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{
+      x:{ grid:{ color:CHART_GRID_COLOR } }, y:{ beginAtZero:true, ticks:{ precision:0 }, grid:{ color:CHART_GRID_COLOR } }
+    } }
+  });
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type:'line',
+    data:{ labels:[], datasets:[{ data:[], borderColor:'#6FE0A0', backgroundColor:'rgba(111,224,160,.15)', fill:true, tension:.3, pointRadius:2 }] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{
+      x:{ grid:{ color:CHART_GRID_COLOR } }, y:{ beginAtZero:true, ticks:{ precision:0 }, grid:{ color:CHART_GRID_COLOR } }
+    } }
+  });
+  workerChart = new Chart(document.getElementById('workerChart'), {
+    type:'bar',
+    data:{ labels:[], datasets:[
+      { label:t('an_completed'), data:[], backgroundColor:'#4E9B5C', borderRadius:3 },
+      { label:t('st_progress'), data:[], backgroundColor:'#F0B429', borderRadius:3 },
+      { label:t('st_assigned'), data:[], backgroundColor:'#8B6FD1', borderRadius:3 },
+    ] },
+    options:{ plugins:{ legend:{ position:'bottom' } }, scales:{
+      x:{ grid:{ display:false } }, y:{ beginAtZero:true, ticks:{ precision:0 }, grid:{ color:CHART_GRID_COLOR } }
+    } }
+  });
+}
+
+function renderAnalytics(){
+  initAnalyticsCharts();
+
+  const total = complaints.length;
+  const completed = complaints.filter(c=>c.status==='resolved').length;
+  const pending = total - completed;
+  document.getElementById('anTotal').textContent = total;
+  document.getElementById('anCompleted').textContent = completed;
+  document.getElementById('anPending').textContent = pending;
+
+  // Status breakdown (only statuses actually present get a slice)
+  const statusOrder = ['submitted','verified','assigned','progress','resolved'];
+  const statusCounts = statusOrder.map(s => complaints.filter(c=>c.status===s).length);
+  const presentIdx = statusCounts.map((n,i)=>n>0?i:-1).filter(i=>i>=0);
+  statusChart.data.labels = presentIdx.map(i => t('st_'+statusOrder[i]));
+  statusChart.data.datasets[0].data = presentIdx.map(i => statusCounts[i]);
+  statusChart.data.datasets[0].backgroundColor = presentIdx.map(i => STATUS_COLORS[statusOrder[i]]);
+  statusChart.update();
+
+  // Waste/category breakdown
+  const cats = ['garbage','sewage','dumping','drainage','toilet','sweeping'];
+  const catCounts = cats.map(c => complaints.filter(x=>x.category===c).length);
+  const catPresent = cats.map((c,i)=>catCounts[i]>0 ? i : -1).filter(i=>i>=0);
+  wasteChart.data.labels = catPresent.map(i => t('cat_'+cats[i]));
+  wasteChart.data.datasets[0].data = catPresent.map(i => catCounts[i]);
+  wasteChart.update();
+
+  // 14-day trend
+  const days = [];
+  for(let i=13;i>=0;i--){
+    const d = new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
+    days.push(d);
+  }
+  const trendLabels = days.map(d => (d.getMonth()+1)+'-'+String(d.getDate()).padStart(2,'0'));
+  const trendCounts = days.map(d=>{
+    const next = new Date(d); next.setDate(next.getDate()+1);
+    return complaints.filter(c=>{ const ct = new Date(c.createdAt); return ct>=d && ct<next; }).length;
+  });
+  trendChart.data.labels = trendLabels;
+  trendChart.data.datasets[0].data = trendCounts;
+  trendChart.update();
+
+  // Worker performance
+  const wLabels = workers.map(w=>w.name);
+  const wCompleted = workers.map(w=>complaints.filter(c=>c.assignedTo===w.name && c.status==='resolved').length);
+  const wProgress  = workers.map(w=>complaints.filter(c=>c.assignedTo===w.name && c.status==='progress').length);
+  const wAssigned  = workers.map(w=>complaints.filter(c=>c.assignedTo===w.name && c.status==='assigned').length);
+  workerChart.data.labels = wLabels;
+  workerChart.data.datasets[0].data = wCompleted;
+  workerChart.data.datasets[0].label = t('an_completed');
+  workerChart.data.datasets[1].data = wProgress;
+  workerChart.data.datasets[1].label = t('st_progress');
+  workerChart.data.datasets[2].data = wAssigned;
+  workerChart.data.datasets[2].label = t('st_assigned');
+  workerChart.update();
+
+  // Recent activity feed — derived from each complaint's most recent known
+  // timestamp (resolved > verified > created), since this demo doesn't keep
+  // a full separate audit log.
+  const activity = complaints.map(c => ({
+    c, at: new Date(c.resolvedAt || c.verifiedAt || c.createdAt).getTime()
+  })).sort((a,b)=>b.at-a.at).slice(0,8);
+  const feed = document.getElementById('activityFeed');
+  document.getElementById('activityEmpty').style.display = activity.length ? 'none' : 'block';
+  feed.innerHTML = activity.map(({c,at})=>
+    '<div class="activity-item">'+
+      '<span class="a-cat">'+t('cat_'+c.category)+'</span>'+
+      '<span class="abadge abadge-'+c.status+'">'+t('st_'+c.status)+'</span>'+
+      '<span class="a-who">👤 '+(c.name||t('anonymous'))+'</span>'+
+      (c.assignedTo ? '<span class="a-who">🔧 '+c.assignedTo+'</span>' : '')+
+      '<span class="a-time">'+fmtTime(new Date(at).toISOString())+'</span>'+
+    '</div>'
+  ).join('');
+
+  tickAnalyticsClock();
+}
+
+function tickAnalyticsClock(){
+  const locale = getLang()==='hi' ? 'hi-IN' : 'en-IN';
+  document.getElementById('analyticsUpdatedAt').textContent = new Date().toLocaleTimeString(locale, { hour12:false });
+  document.getElementById('analyticsLiveDot').classList.toggle('demo', !usingLiveData);
+  document.getElementById('analyticsLiveLabel').textContent = usingLiveData ? 'Live' : (getLang()==='hi' ? 'डेमो' : 'Demo');
+}
+
+/* =================== RENDER: MAP =================== */
+let hqMap, markerLayer, heatLayer, mapMode = 'markers';
+function statusColor(status){
+  return status === 'resolved' ? '#2F7D5E' : (status === 'progress' || status === 'assigned' ? '#B5691A' : '#E08A2C');
+}
+function initMapIfNeeded(){
+  if(hqMap) return;
+  try{
+    hqMap = L.map('hqMap').setView([25.3176, 82.9739], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'&copy; OpenStreetMap', maxZoom:19 }).addTo(hqMap);
+    markerLayer = L.layerGroup().addTo(hqMap);
+    heatLayer = L.heatLayer([], { radius:32, blur:24, maxZoom:14 });
+    ZONES.forEach(z=>{
+      L.marker([z.lat,z.lng], { opacity:0.001 }).addTo(hqMap); // keeps zone centers in view bounds
+    });
+    setTimeout(()=>hqMap.invalidateSize(), 150);
+    window.addEventListener('resize', ()=>{ if(hqMap) hqMap.invalidateSize(); });
+  }catch(err){
+    document.getElementById('hqMap').innerHTML = '<div class="empty">Map failed to load — the rest of the dashboard still works.</div>';
+  }
+}
+function renderMapLayers(){
+  if(!hqMap || !markerLayer) return;
+  markerLayer.clearLayers();
+  const heatPoints = [];
+  complaints.forEach(c=>{
+    const color = statusColor(c.status);
+    L.circleMarker([c.lat,c.lng], { radius:7, color, fillColor:color, fillOpacity:.75, weight:1 })
+      .addTo(markerLayer)
+      .bindPopup('<strong>'+c.code+'</strong><br>'+t('cat_'+c.category)+'<br>'+t('st_'+c.status));
+    heatPoints.push([c.lat, c.lng, c.status==='resolved' ? 0.35 : 1]);
+  });
+  heatLayer.setLatLngs(heatPoints);
+  hqMap.invalidateSize();
+}
+function setMapMode(mode){
+  mapMode = mode;
+  document.getElementById('mapMarkersBtn').classList.toggle('active', mode==='markers');
+  document.getElementById('mapHeatBtn').classList.toggle('active', mode==='heat');
+  document.getElementById('mapLegend').classList.toggle('heat-mode', mode==='heat');
+  if(!hqMap) return;
+  if(mode==='markers'){
+    if(hqMap.hasLayer(heatLayer)) hqMap.removeLayer(heatLayer);
+    if(!hqMap.hasLayer(markerLayer)) markerLayer.addTo(hqMap);
+  } else {
+    if(hqMap.hasLayer(markerLayer)) hqMap.removeLayer(markerLayer);
+    if(!hqMap.hasLayer(heatLayer)) heatLayer.addTo(hqMap);
+  }
+}
+document.getElementById('mapMarkersBtn').addEventListener('click', ()=>setMapMode('markers'));
+document.getElementById('mapHeatBtn').addEventListener('click', ()=>setMapMode('heat'));
+
+/* =================== GENERIC MODAL HELPERS =================== */
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+/* =================== COMPLAINT DETAIL + ACTIONS =================== */
+async function apiPatch(id, action, body){
+  const res = await fetch(API_BASE + '/api/complaints/' + id + '/' + action, {
+    method:'PATCH', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{}),
+  });
+  if(!res.ok) throw new Error('request_failed');
+  return res.json();
+}
+function localUpdate(id, patch){
+  const c = complaints.find(x=>x.id===id);
+  if(c) Object.assign(c, patch);
+  return c;
+}
+function showActionError(){ window.alert('This action could not be saved. Please try again.'); }
+
+async function openDetail(id){
+  const c = complaints.find(x=>x.id===id);
+  if(!c) return;
+  const sla = slaState(c);
+  let actionsHtml = '';
+  if(c.status === 'submitted'){
+    actionsHtml =
+      '<button class="btn btn-primary btn-block" onclick="doVerify(\''+id+'\')">'+t('verify_btn')+'</button>'+
+      '<label>'+t('reassign_label')+'</label>'+
+      '<div class="reassign-row"><select id="reassignSelect">'+ZONES.map(z=>'<option value="'+z.id+'">'+(getLang()==='hi'?z.name_hi:z.name_en)+'</option>').join('')+'</select>'+
+      '<button class="btn btn-outline btn-sm" onclick="doReassign(\''+id+'\')">'+t('reassign_btn')+'</button></div>';
+  } else if(c.status === 'verified'){
+    actionsHtml = '<button class="btn btn-secondary btn-sm" onclick="doAssign(\''+id+'\',\'vehicle\')">'+t('vehicle_btn')+'</button> '+
+                  '<button class="btn btn-secondary btn-sm" onclick="doAssign(\''+id+'\',\'worker\')">'+t('worker_btn')+'</button>';
+  } else if(c.status === 'assigned'){
+    actionsHtml = '<button class="btn btn-secondary btn-sm" onclick="doProgress(\''+id+'\')">'+t('progress_btn')+'</button>';
+  } else if(c.status === 'progress'){
+    actionsHtml = '<button class="btn btn-primary btn-sm" onclick="doResolve(\''+id+'\')">'+t('resolve_btn')+'</button>';
+  }
+  document.getElementById('detailBox').innerHTML =
+    '<button class="modal-close" onclick="closeDetail()">&times;</button>'+
+    '<h2 class="mono" style="font-size:17px;">'+c.code+'</h2>'+
+    '<span class="badge badge-'+c.status+'">'+t('st_'+c.status)+'</span> '+
+    '<span class="badge badge-sla-'+sla+'">'+t('sla_'+sla)+'</span>'+
+    (c.photo ? '<img src="'+c.photo+'">' : '<div class="empty" style="padding:20px;">'+t('no_photo')+'</div>')+
+    '<div class="kv"><span>'+t('label_description')+'</span><span>'+(c.description||'—')+'</span></div>'+
+    '<div class="kv"><span>'+t('label_reporter')+'</span><span>'+(c.name||t('anonymous'))+'</span></div>'+
+    '<div class="kv"><span>'+t('label_zone')+'</span><span>'+zoneName(c.zone)+'</span></div>'+
+    '<div class="kv"><span>'+t('label_location')+'</span><span class="mono">'+c.lat.toFixed(5)+', '+c.lng.toFixed(5)+'</span></div>'+
+    (c.assignedTo ? '<div class="kv"><span>'+t('label_assigned')+'</span><span>'+c.assignedTo+'</span></div>' : '')+
+    '<hr class="divider">'+actionsHtml;
+  document.getElementById('detailModal').classList.add('open');
+}
+function closeDetail(){ document.getElementById('detailModal').classList.remove('open'); }
+
+async function doVerify(id){
+  if(usingLiveData){ try{ await apiPatch(id,'verify'); }catch(e){ showActionError(); return; } }
+  localUpdate(id, { status:'verified', verifiedAt:new Date().toISOString() });
+  openDetail(id); renderAll();
+}
+async function doReassign(id){
+  const zone = document.getElementById('reassignSelect').value;
+  if(usingLiveData){ try{ await apiPatch(id,'reassign-zone',{zone}); }catch(e){ showActionError(); return; } }
+  const patch = { zone };
+  const c = complaints.find(x=>x.id===id);
+  if(c && c.status === 'submitted'){ patch.status = 'verified'; patch.verifiedAt = new Date().toISOString(); }
+  localUpdate(id, patch);
+  openDetail(id); renderAll();
+}
+async function doAssign(id, type){
+  const assignedTo = type==='vehicle' ? ('UP65-AB-'+(1000+Math.floor(Math.random()*900))) : ('Worker #'+(200+Math.floor(Math.random()*90)));
+  if(usingLiveData){ try{ await apiPatch(id,'assign',{assignedType:type, assignedTo}); }catch(e){ showActionError(); return; } }
+  localUpdate(id, { status:'assigned', assignedType:type, assignedTo });
+  openDetail(id); renderAll();
+}
+async function doProgress(id){
+  if(usingLiveData){ try{ await apiPatch(id,'progress'); }catch(e){ showActionError(); return; } }
+  localUpdate(id, { status:'progress' });
+  openDetail(id); renderAll();
+}
+async function doResolve(id){
+  if(usingLiveData){ try{ await apiPatch(id,'resolve',{afterPhoto:null}); }catch(e){ showActionError(); return; } }
+  localUpdate(id, { status:'resolved', resolvedAt:new Date().toISOString() });
+  openDetail(id); renderAll();
+}
+
+/* =================== MASTER RENDER =================== */
+function renderAll(){
+  renderOverview();
+  renderAllTable();
+  renderZoneCards();
+  if(document.getElementById('view-workers').classList.contains('active')) renderWorkers();
+  if(document.getElementById('view-analytics').classList.contains('active')) renderAnalytics();
+  if(hqMap) renderMapLayers();
+}
+
+/* =================== NOTIFICATIONS =================== */
+function renderNotifications(){
+  const pending = complaints.filter(c=>c.status==='submitted');
+  const dot = document.getElementById('notifDot');
+  dot.style.display = pending.length ? 'block' : 'none';
+  const panel = document.getElementById('notifPanel');
+  if(!pending.length){
+    panel.innerHTML = '<div class="notif-item">'+t('incoming_empty')+'</div>';
+    return;
+  }
+  panel.innerHTML = pending.slice(0,5).map(c=>
+    '<button class="notif-item" onclick="closeNotif();openDetail(\''+c.id+'\')"><strong>'+c.code+'</strong> — '+t('cat_'+c.category)+' · '+zoneName(c.zone)+'</button>'
+  ).join('');
+}
+function closeNotif(){ document.getElementById('notifPanel').classList.remove('open'); }
+document.getElementById('notifBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  document.getElementById('notifPanel').classList.toggle('open');
+});
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('.notif-wrap')) closeNotif();
+});
+
+/* =================== SETTINGS VIEW =================== */
+function renderSettings(){
+  const session = getHqSession();
+  document.getElementById('settingsName').textContent = session ? session.name : '—';
+  document.getElementById('settingsEmail').textContent = session ? session.email : '—';
+  document.getElementById('settingsConnDot').className = 'conn-dot ' + (usingLiveData ? 'live' : 'demo');
+  document.getElementById('settingsConnLabel').textContent = usingLiveData ? t('conn_live') : t('conn_demo');
+}
+document.getElementById('settingsSignOut').addEventListener('click', hqSignOut);
+
+/* =================== DATE DISPLAY =================== */
+function renderTopbarDate(){
+  const locale = getLang()==='hi' ? 'hi-IN' : 'en-IN';
+  document.getElementById('topbarDate').textContent = new Date().toLocaleDateString(locale, { day:'numeric', month:'short', year:'numeric' });
+}
+
+/* =================== ADD COMPLAINT (manual log) =================== */
+function openAddComplaintModal(){
+  populateZoneSelect('ac-zone');
+  document.getElementById('ac-desc').value = '';
+  document.getElementById('ac-name').value = '';
+  openModal('addComplaintModal');
+}
+function saveManualComplaint(){
+  const category = document.getElementById('ac-category').value;
+  const zone = document.getElementById('ac-zone').value;
+  const description = document.getElementById('ac-desc').value.trim();
+  const name = document.getElementById('ac-name').value.trim();
+  const z = zoneObj(zone);
+  const jitter = () => (Math.random()-0.5)*0.01;
+  const complaint = {
+    id:'manual-'+Date.now(), code:'NC-VNS-2026-'+String(complaints.length+1).padStart(5,'0'),
+    category, description, name, lat:z.lat+jitter(), lng:z.lng+jitter(), zone,
+    photo:null, status:'verified', createdAt:new Date().toISOString(), verifiedAt:new Date().toISOString(), assignedTo:null,
+  };
+  complaints.unshift(complaint);
+  closeModal('addComplaintModal');
+  renderAll();
+}
+
+/* =================== ASSIGN WORKER PICKER (Recent Complaints quick action) =================== */
+function openAssignPicker(){
+  const eligible = complaints.filter(c=>c.status==='verified' || c.status==='assigned');
+  document.getElementById('ap-complaint').innerHTML = eligible.length
+    ? eligible.map(c=>'<option value="'+c.id+'">'+c.code+' — '+t('cat_'+c.category)+' ('+zoneName(c.zone)+')</option>').join('')
+    : '<option value="">'+t('incoming_empty')+'</option>';
+  renderAssignWorkerOptions();
+  document.getElementById('ap-complaint').onchange = renderAssignWorkerOptions;
+  openModal('assignPickerModal');
+}
+function renderAssignWorkerOptions(){
+  const cid = document.getElementById('ap-complaint').value;
+  const c = complaints.find(x=>x.id===cid);
+  const zoneWorkers = c ? workers.filter(w=>w.zone===c.zone) : workers;
+  document.getElementById('ap-worker').innerHTML = (zoneWorkers.length ? zoneWorkers : workers)
+    .map(w=>'<option value="'+w.id+'">'+w.name+' ('+t('worker_status_'+w.status)+')</option>').join('');
+}
+async function confirmAssignPicker(){
+  const cid = document.getElementById('ap-complaint').value;
+  const wid = document.getElementById('ap-worker').value;
+  const worker = workers.find(w=>w.id===wid);
+  if(!cid || !worker) { closeModal('assignPickerModal'); return; }
+  if(usingLiveData){ try{ await apiPatch(cid,'assign',{assignedType:'worker'}); }catch(e){ showActionError(); return; } }
+  localUpdate(cid, { status:'assigned', assignedType:'worker', assignedTo:worker.name });
+  worker.status = 'busy';
+  saveWorkers(workers);
+  closeModal('assignPickerModal');
+  renderAll();
+}
+
+/* =================== EXPORT DATA (CSV) =================== */
+function exportComplaintsCSV(){
+  const headers = ['code','category','zone','status','priority','lat','lng','createdAt','assignedTo'];
+  const rows = complaints.map(c => [
+    c.code, c.category, zoneName(c.zone), c.status, derivePriority(c), c.lat, c.lng, c.createdAt, c.assignedTo||''
+  ]);
+  const csv = [headers.join(',')].concat(
+    rows.map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(','))
+  ).join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'nagarclean-complaints-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* =================== HQ ACCESS CHECK (uses the shared staff login page) =================== */
+// Accounts now live in one shared table created by login.html, so a single
+// sign-in there can route to either this HQ dashboard or the zone office one.
+function getHqSession(){
+  try{
+    const s = JSON.parse(localStorage.getItem('nc_staff_session'));
+    return (s && s.role === 'hq') ? s : null;
+  }catch(e){ return null; }
+}
+function clearHqSession(){ localStorage.removeItem('nc_staff_session'); }
+
+async function getServerSession(){
+  try{
+    const res = await fetch(API_BASE + '/api/auth/session', { credentials:'include', signal: AbortSignal.timeout(2500) });
+    if(!res.ok) return null;
+    const body = await res.json();
+    return body.user && body.user.role === 'hq' ? body.user : null;
+  }catch(error){ return null; }
+}
+
+async function hqSignOut(){
+  try{ await fetch(API_BASE + '/api/auth/signout', { method:'POST', credentials:'include' }); }catch(error){}
+  clearHqSession();
+  window.location.href = 'login.html';
+}
+document.getElementById('sidebarSignOut').addEventListener('click', hqSignOut);
+
+function enterDashboard(session){
+  document.getElementById('appShell').style.display = 'flex';
+  if(session){
+    const initial = session.name.trim().charAt(0).toUpperCase() || 'A';
+    document.getElementById('sidebarAvatar').textContent = initial;
+    document.getElementById('sidebarAdminName').textContent = session.name;
+    document.getElementById('topbarAvatar').textContent = initial;
+    document.getElementById('topbarAdminName').textContent = session.name;
+  }
+  applyLang();
+  loadData();
+}
+
+/* =================== LANGUAGE WIRING =================== */
+document.querySelectorAll('.sidebar-lang button').forEach(b=>{
+  b.addEventListener('click', ()=>setLang(b.dataset.lang));
+});
+
+/* =================== INIT =================== */
+window.addEventListener('load', async ()=>{
+  applyLang(); // translate any visible labels before the access check redirects
+  renderTopbarDate();
+  const session = await getServerSession();
+  if(!session){
+    window.location.href = 'login.html';
+    return;
+  }
+  localStorage.setItem('nc_staff_session', JSON.stringify(session));
+  enterDashboard(session);
+  setInterval(loadData, 15000); // keep HQ view fresh if the backend is live
+});
+</script>
+</body>
+</html>

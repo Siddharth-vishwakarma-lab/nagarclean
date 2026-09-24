@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NagarClean — वाराणसी नगर निगम की आधिकारिक नागरिक सेवा</title>
+<meta name="description" content="Report garbage, sewage, and drainage issues directly to your local Nagar Nigam zone office.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root{
+    --bg:#F5F6F1; --surface:#FFFFFF; --ink:#161A18; --ink-muted:#4B524D; --ink-faint:#7C837D;
+    --primary:#14504A; --primary-dark:#0D3733; --primary-tint:#E5EEEC;
+    --accent:#F0B429; --accent-dark:#9C6B04; --accent-tint:#FDF3DA;
+    --danger:#B23B3B; --danger-tint:#F7E7E5; --success:#2F7D5E; --success-tint:#E5F0EA;
+    --warning:#B5791A; --warning-tint:#FBF0DE; --border:#DEDBD0; --radius:10px;
+    --ink-on-dark:#EDEEE9;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',-apple-system,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  code,.mono{font-family:'IBM Plex Mono',monospace;}
+  h1,h2,h3{font-weight:700;margin:0 0 8px;letter-spacing:-0.01em;}
+  p{margin:0 0 12px;color:var(--ink-muted);max-width:64ch;}
+  a{color:var(--primary);}
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;font-size:15px;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px;}
+
+  /* ---- header (utility bar + nav) ---- */
+  .site-header{position:sticky;top:0;z-index:70;background:#fff;}
+  .utilbar{display:flex;align-items:center;justify-content:space-between;padding:9px 24px;border-bottom:1px solid var(--border);font-size:13.5px;gap:12px;}
+  .utilbar .official{color:var(--ink-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .utilbar .badge-logo{
+    background:var(--accent);color:var(--primary-dark);font-weight:800;font-size:14px;
+    border:2px solid var(--primary-dark);border-radius:6px;padding:6px 12px;line-height:1;text-align:center;letter-spacing:-0.01em;flex:none;
+  }
+  .lang-square{display:flex;gap:6px;flex:none;}
+  .lang-square button{
+    width:30px;height:30px;border-radius:6px;border:1px solid var(--ink);background:#fff;color:var(--ink);
+    font-weight:700;font-size:13px;
+  }
+  .lang-square button.active{background:var(--ink);color:#fff;}
+
+  .navbar{display:flex;align-items:center;gap:4px;padding:12px 24px;border-bottom:1px solid var(--border);background:#fff;position:relative;}
+  .nav-home{width:38px;height:38px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex:none;border:none;color:var(--ink);cursor:pointer;padding:0;}
+  .nav-home:hover{background:var(--primary-tint);color:var(--primary);}
+  .nav-links{display:flex;align-items:center;gap:4px;flex:1;flex-wrap:wrap;}
+  .navlink{background:none;border:none;font-weight:600;font-size:14.5px;color:var(--ink);padding:10px 14px;border-radius:8px;white-space:nowrap;}
+  .navlink:hover{background:var(--bg);}
+  .navsearch{margin-left:auto;display:flex;align-items:center;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .navsearch input{border:none;padding:9px 12px;width:180px;}
+  .navsearch input:focus{outline:none;}
+  .navsearch button{background:var(--bg);border:none;padding:9px 12px;display:flex;align-items:center;}
+  .nav-toggle{display:none;background:none;border:1px solid var(--border);border-radius:8px;padding:8px;margin-left:auto;color:var(--ink);}
+
+  @media(max-width:860px){
+    .utilbar .official{max-width:44vw;}
+    .nav-links{
+      display:none;position:absolute;top:100%;left:0;right:0;background:#fff;
+      flex-direction:column;align-items:stretch;gap:0;border-bottom:1px solid var(--border);
+      box-shadow:0 8px 16px rgba(0,0,0,.06);padding:6px;
+    }
+    .nav-links.open{display:flex;}
+    .navlink{text-align:left;width:100%;}
+    .navsearch{margin:8px 6px 4px;}
+    .navsearch input{width:auto;flex:1;}
+    .nav-toggle{display:flex;align-items:center;justify-content:center;}
+  }
+  @media(max-width:480px){
+    .utilbar .official{display:none;}
+    .utilbar{justify-content:space-between;}
+  }
+
+  /* ---- hero ---- */
+  .hero{position:relative;min-height:560px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;color:#fff;}
+  .hero-bg{position:absolute;inset:0;z-index:0;}
+  .hero-bg svg{width:100%;height:100%;object-fit:cover;display:block;}
+  .hero-scrim{position:absolute;inset:0;background:linear-gradient(0deg, rgba(10,18,16,.86) 0%, rgba(10,18,16,.55) 42%, rgba(10,18,16,.15) 75%, rgba(10,18,16,.05) 100%);z-index:1;}
+  .hero-content{position:relative;z-index:2;padding:26px 24px 46px;}
+  .hero-auth-row{display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-bottom:16px;font-size:13.5px;flex-wrap:wrap;}
+  .hero-greeting{color:#fff;font-weight:600;}
+  .hero-auth-link{background:none;border:none;color:#fff;font-weight:600;font-size:13.5px;text-decoration:underline;text-underline-offset:3px;}
+  .hero-auth-btn{background:none;border:1.5px solid #fff;color:#fff;font-weight:700;font-size:13.5px;padding:8px 16px;border-radius:8px;}
+  .hero-auth-btn:hover{background:rgba(255,255,255,.12);}
+  .alert-banner{
+    background:#fff;color:var(--ink);border:1.5px solid var(--ink);border-radius:8px;
+    padding:14px 44px 14px 16px;max-width:760px;margin-bottom:34px;font-size:14.5px;position:relative;
+  }
+  .alert-banner strong{display:block;margin-bottom:2px;}
+  .alert-banner .x{position:absolute;top:10px;right:12px;background:none;border:none;font-size:17px;color:var(--ink-faint);}
+  .hero-grid{display:grid;grid-template-columns:1.3fr .7fr;gap:24px;align-items:end;}
+  @media(max-width:860px){.hero-grid{grid-template-columns:1fr;}}
+  .hero h1{font-size:52px;line-height:1.02;text-transform:uppercase;font-weight:800;margin-bottom:22px;}
+  @media(max-width:640px){.hero h1{font-size:36px;}}
+  .hero-search{display:flex;max-width:560px;border:2px solid #fff;border-radius:8px;overflow:hidden;background:#fff;}
+  .hero-search input{flex:1;border:none;padding:15px 16px;font-size:16px;}
+  .hero-search input:focus{outline:none;}
+  .hero-search button{background:var(--ink);border:none;color:#fff;padding:0 20px;display:flex;align-items:center;}
+  .hero-side{display:flex;flex-direction:column;gap:10px;align-items:stretch;}
+  .hero-cta-btn{
+    background:var(--accent);color:#3A2504;border:none;border-radius:8px;padding:16px 20px;font-weight:700;font-size:15.5px;text-align:center;
+  }
+  .hero-cta-btn:hover{filter:brightness(1.04);}
+
+  /* ---- stats banner ---- */
+  .stats-banner{border-top:6px solid var(--accent);background:#fff;padding:38px 0;}
+  .stats-grid{display:flex;justify-content:space-around;flex-wrap:wrap;gap:28px;text-align:center;}
+  .stat-item .stat-num{font-size:46px;font-weight:800;letter-spacing:-0.02em;line-height:1;}
+  .stat-item .stat-label{font-size:15px;font-weight:600;color:var(--ink-muted);margin-top:8px;}
+
+  /* ---- today / updates ---- */
+  .today-section{background:var(--bg);padding:44px 0;}
+  .today-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;}
+  @media(max-width:860px){.today-grid{grid-template-columns:1fr;}}
+  .today-left{padding:28px;}
+  .today-title-row{display:flex;align-items:center;gap:14px;margin-bottom:22px;flex-wrap:wrap;}
+  .today-title-row h2{font-size:30px;margin:0;}
+  .today-date{display:flex;align-items:center;gap:8px;color:var(--ink-muted);font-size:14px;background:var(--bg);padding:6px 12px;border-radius:100px;}
+  .status-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:22px;}
+  .status-row:last-child{margin-bottom:0;}
+  .status-icon{width:52px;height:52px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;}
+  .status-icon.ok{background:var(--success-tint);color:var(--success);}
+  .status-icon.warn{background:var(--warning-tint);color:var(--warning);}
+  .status-label{font-weight:700;font-size:14px;}
+  .status-value{font-size:13px;text-transform:uppercase;letter-spacing:.02em;font-weight:700;color:var(--ink-muted);}
+  .today-right{background:var(--primary-tint);padding:24px;border-left:1px solid var(--border);}
+  @media(max-width:860px){.today-right{border-left:none;border-top:1px solid var(--border);}}
+  .update-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .update-header .badge-logo{font-size:12px;padding:3px 7px;}
+  .update-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:13.5px;}
+  .update-card .time{color:var(--ink-faint);font-size:12px;margin-bottom:6px;}
+
+  /* ---- popular links ---- */
+  .section{padding:48px 0;}
+  .section-title{font-size:30px;margin-bottom:26px;}
+  .popular-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:28px 32px;}
+  @media(max-width:860px){.popular-grid{grid-template-columns:1fr 1fr;}}
+  @media(max-width:520px){.popular-grid{grid-template-columns:1fr;}}
+  .popular-col button{
+    display:block;width:100%;text-align:left;background:none;border:none;font-family:inherit;
+    font-weight:700;font-size:15px;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--border);color:var(--ink);cursor:pointer;
+  }
+  .popular-col button:last-child{border-bottom:none;margin-bottom:0;}
+  .popular-col button:hover{color:var(--primary);}
+
+  /* ---- complaint map / heatmap ---- */
+  .map-section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
+  .map-toggle{display:flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden;flex:none;}
+  .map-toggle button{background:#fff;border:none;padding:9px 16px;font-size:13.5px;font-weight:700;color:var(--ink);}
+  .map-toggle button.active{background:var(--ink);color:#fff;}
+  .map-toggle button:not(:last-child){border-right:1.5px solid var(--ink);}
+  .card{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
+  .section-map{position:relative;display:block;width:100%;height:480px;min-height:260px;max-height:480px;background:var(--bg);overflow:hidden;}
+  .leaflet-container{width:100% !important;height:100% !important;display:block;position:relative;z-index:1;}
+  @media(max-width:640px){.section-map{height:300px;min-height:220px;max-height:300px;}}
+  .map-legend{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-muted);}
+  .map-legend .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;}
+  .map-legend.heat-mode .dot{display:none;}
+
+  /* ---- press release / other links (gov-style link panels) ---- */
+  .govlinks-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start;}
+  @media(max-width:760px){.govlinks-grid{grid-template-columns:1fr;}}
+  .govlinks-card{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .govlinks-card-head{background:linear-gradient(135deg,#C1440E,#7A2C0E);color:#fff;padding:16px 20px;font-size:19px;font-weight:800;}
+  .govlinks-card ul{list-style:none;margin:0;padding:0;max-height:420px;overflow-y:auto;}
+  .govlinks-card li{border-bottom:1px solid var(--border);}
+  .govlinks-card li:last-child{border-bottom:none;}
+  .govlinks-card button{display:block;width:100%;text-align:left;background:none;border:none;font-family:inherit;font-size:14.5px;font-weight:600;color:var(--ink);padding:13px 20px;cursor:pointer;}
+  .govlinks-card button:hover{background:var(--bg);color:var(--primary);}
+  .govlinks-card.alt li{background:#FAFAF6;}
+
+  /* ---- category cards ---- */
+  .section-alt{background:#EFEEE4;padding:48px 0;}
+  .cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;}
+  @media(max-width:960px){.cat-grid{grid-template-columns:1fr 1fr;}}
+  @media(max-width:520px){.cat-grid{grid-template-columns:1fr;}}
+  .cat-card{background:#fff;border:1px solid var(--border);border-radius:4px;overflow:hidden;text-align:left;width:100%;color:var(--ink);display:flex;flex-direction:column;}
+  .cat-card:hover{border-color:var(--primary);}
+  .cat-card .art{aspect-ratio:16/10;background:var(--primary-tint);display:block;}
+  .cat-card .art svg{width:100%;height:100%;display:block;}
+  .cat-card .body{padding:16px;}
+  .cat-card h3{font-size:16px;margin-bottom:6px;}
+  .cat-card p{font-size:13px;margin:0;}
+
+  /* ---- footer ---- */
+  footer{background:#141814;color:var(--ink-on-dark);padding:44px 0 26px;margin-top:0;}
+  .footer-top{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:32px;margin-bottom:30px;}
+  .footer-brand-name{font-size:19px;font-weight:800;margin-bottom:6px;color:#fff;}
+  .footer-tagline{font-size:13.5px;color:#9CA39A;max-width:34ch;margin-bottom:0;}
+  .connect-icons{display:flex;gap:12px;margin-top:16px;}
+  .connect-icons a{width:38px;height:38px;border-radius:50%;background:#242924;display:flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;flex:none;}
+  .connect-icons a:hover{background:var(--primary);}
+  .footer-col-title{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#7d8378;font-weight:700;margin-bottom:14px;}
+  .footer-links a, .footer-links button{display:block;color:#C7CBC5;text-decoration:none;font-size:14.5px;margin-bottom:12px;font-weight:600;background:none;border:none;font-family:inherit;padding:0;text-align:left;cursor:pointer;}
+  .footer-links a:hover, .footer-links button:hover{color:#fff;}
+  .app-note{border:1px solid #33382f;border-radius:8px;padding:14px 16px;font-size:13px;color:#C7CBC5;max-width:260px;}
+  .footer-bottom-bar{border-top:1px solid #2b2f2a;padding-top:20px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;font-size:13px;}
+  .footer-bottom-links{display:flex;gap:26px;flex-wrap:wrap;}
+  .footer-bottom-bar a{color:#C7CBC5;text-decoration:none;}
+  .footer-bottom-bar a:hover{color:#fff;}
+  .back-to-top{color:#C7CBC5;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:6px;}
+  .back-to-top:hover{color:#fff;}
+  .footer-note{margin-top:18px;font-size:12px;color:#7d8378;}
+  @media(max-width:860px){
+    .footer-top{grid-template-columns:1fr 1fr;}
+  }
+  @media(max-width:560px){
+    .footer-top{grid-template-columns:1fr;gap:26px;}
+    .footer-bottom-bar{flex-direction:column;align-items:flex-start;}
+  }
+
+  /* ---- shared buttons ---- */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:8px;border:none;font-size:14.5px;font-weight:700;text-decoration:none;}
+  .btn-primary{background:var(--accent);color:#3A2504;}
+  .btn-outline{background:transparent;border:1.5px solid var(--ink);color:var(--ink);}
+  .btn-block{width:100%;}
+  .btn-sm{padding:8px 13px;font-size:13px;font-weight:600;}
+  .btn[disabled]{opacity:.5;cursor:not-allowed;}
+
+  /* ---- modal (report / track) ---- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(15,20,18,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:16px;}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:#fff;border-radius:12px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;}
+  .modal-close{float:right;background:none;border:none;font-size:20px;color:var(--ink-faint);line-height:1;}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text],select,textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--ink);}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--primary);outline-offset:1px;border-color:var(--primary);}
+  textarea{resize:vertical;min-height:70px;}
+  .hint{font-size:12.5px;color:var(--ink-faint);margin-top:4px;}
+  .modal-map{position:relative;display:block;width:100%;height:220px;min-height:160px;max-height:240px;border-radius:8px;overflow:hidden;border:1px solid var(--border);margin-top:8px;background:var(--bg);}
+  .modal-map .leaflet-container{width:100% !important;height:100% !important;}
+  @media(max-width:480px){.modal-map{height:180px;min-height:150px;max-height:180px;}}
+  .loc-readout{display:flex;gap:16px;margin-top:8px;font-size:13px;color:var(--ink-muted);}
+  .photo-drop{border:1.5px dashed var(--border);border-radius:8px;padding:16px;text-align:center;color:var(--ink-faint);font-size:13.5px;cursor:pointer;position:relative;}
+  .photo-drop img{max-width:100%;max-height:130px;border-radius:6px;display:block;margin:0 auto;}
+  .photo-drop input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+  .banner{border-radius:10px;padding:12px 16px;font-size:13.5px;display:none;margin-bottom:14px;}
+  .banner.show{display:block;}
+  .banner-error{background:var(--danger-tint);color:var(--danger);}
+  .kv{display:grid;grid-template-columns:110px 1fr;gap:8px;font-size:13.5px;margin:4px 0;}
+  .kv span:first-child{color:var(--ink-faint);}
+  .divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:100px;font-size:12px;font-weight:700;white-space:nowrap;}
+  .badge-submitted{background:var(--warning-tint);color:var(--warning);}
+  .badge-verified{background:var(--primary-tint);color:var(--primary-dark);}
+  .badge-assigned{background:var(--primary-tint);color:var(--primary-dark);}
+  .badge-progress{background:var(--accent-tint);color:var(--accent-dark);}
+  .badge-resolved{background:var(--success-tint);color:var(--success);}
+  .timeline{list-style:none;margin:14px 0 0;padding:0;}
+  .timeline li{display:flex;gap:12px;padding:0 0 16px 0;position:relative;}
+  .timeline li:not(:last-child)::before{content:'';position:absolute;left:8px;top:20px;bottom:-2px;width:1.5px;background:var(--border);}
+  .tl-dot{width:16px;height:16px;border-radius:50%;background:var(--border);flex:none;margin-top:2px;}
+  .tl-dot.done{background:var(--success);}
+  .empty{text-align:center;padding:30px 20px;color:var(--ink-faint);font-size:14px;}
+  .zone-dir-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);gap:10px;}
+  .zone-dir-row:last-child{border-bottom:none;}
+  .zone-dir-row .name{font-weight:600;font-size:14px;}
+  .zone-dir-row .hours{font-size:12.5px;color:var(--ink-faint);}
+</style>
+</head>
+<body>
+
+<!-- HEADER (utility bar + nav) -->
+<header class="site-header">
+  <div class="utilbar">
+    <span class="official" data-i18n="official_site">The Official Website of Nagar Nigam Varanasi</span>
+    <div class="badge-logo">NagarClean</div>
+    <div class="lang-square">
+      <button data-lang="en">A</button>
+      <button data-lang="hi">अ</button>
+    </div>
+  </div>
+
+  <div class="navbar">
+    <button class="nav-home" type="button" aria-label="Home" title="Home" onclick="window.scrollTo({top:0,behavior:'smooth'});closeNavPanel();">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11.5L12 4l8 7.5M6 10v9h12v-9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+
+    <nav class="nav-links" id="navLinks">
+      <button class="navlink" onclick="document.getElementById('catSection').scrollIntoView({behavior:'smooth'});closeNavPanel();" data-i18n="nav_browse">Browse Topics</button>
+      <button class="navlink" onclick="openReportModal();closeNavPanel();" data-i18n="nav_report">Report Problems</button>
+      <button class="navlink" onclick="openTrackModal();closeNavPanel();" data-i18n="nav_track">Look Up Service Requests</button>
+      <button class="navlink" onclick="openInfo('about_title','about_alert');closeNavPanel();" data-i18n="nav_about">About NagarClean</button>
+      <div class="navsearch">
+        <input type="text" id="navSearchInput" data-i18n-ph="nav_search_ph">
+        <button id="navSearchBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg></button>
+      </div>
+    </nav>
+
+    <button class="nav-toggle" id="navToggle" aria-label="Menu">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg">
+    <!-- Original illustration of the Varanasi ghats skyline at dusk (not a photo — avoids any copyright/hotlink issues while keeping a real local identity) -->
+    <svg viewBox="0 0 1200 640" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2E4A52"/><stop offset="55%" stop-color="#5C7A6E"/><stop offset="100%" stop-color="#C98A4B"/>
+        </linearGradient>
+        <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#7A9088"/><stop offset="100%" stop-color="#2B3F3C"/>
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="640" fill="url(#sky)"/>
+      <circle cx="960" cy="180" r="70" fill="#F2C879" opacity="0.85"/>
+      <rect y="430" width="1200" height="210" fill="url(#water)"/>
+      <g fill="#233330">
+        <rect x="40" y="300" width="60" height="140"/><rect x="105" y="270" width="46" height="170"/>
+        <rect x="160" y="310" width="70" height="130"/><rect x="240" y="260" width="50" height="180"/>
+        <rect x="300" y="290" width="80" height="150"/><rect x="392" y="240" width="46" height="200"/>
+        <rect x="450" y="280" width="60" height="160"/><rect x="520" y="250" width="70" height="190"/>
+        <rect x="600" y="300" width="55" height="140"/><rect x="666" y="265" width="50" height="175"/>
+        <rect x="726" y="290" width="75" height="150"/><rect x="812" y="245" width="46" height="195"/>
+        <rect x="868" y="300" width="65" height="140"/><rect x="944" y="270" width="55" height="170"/>
+        <rect x="1010" y="255" width="70" height="185"/><rect x="1090" y="295" width="60" height="145"/>
+      </g>
+      <g fill="#3B5049">
+        <rect x="0" y="420" width="1200" height="16"/>
+        <path d="M0 420 L60 400 L120 420 L180 402 L240 420 L300 398 L360 420 L420 404 L480 420 L540 400 L600 420 L660 406 L720 420 L780 400 L840 420 L900 404 L960 420 L1020 400 L1080 420 L1140 405 L1200 420 L1200 440 L0 440 Z"/>
+      </g>
+      <g opacity="0.5" fill="#0F1A18">
+        <ellipse cx="300" cy="470" rx="90" ry="10"/>
+        <ellipse cx="760" cy="490" rx="120" ry="12"/>
+        <ellipse cx="1020" cy="465" rx="80" ry="9"/>
+      </g>
+      <g fill="#12221F">
+        <path d="M120 500 l70 -14 l0 26 l-70 10 z"/>
+        <path d="M700 520 l90 -16 l0 30 l-90 12 z"/>
+      </g>
+    </svg>
+  </div>
+  <div class="hero-scrim"></div>
+  <div class="hero-content wrap">
+    <div class="hero-auth-row">
+      <span class="hero-greeting" id="authGreeting" style="display:none;"></span>
+      <button class="hero-auth-link" id="signInBtn" data-i18n="sign_in">Sign In</button>
+      <button class="hero-auth-btn" id="signUpBtn" data-i18n="sign_up">Sign Up</button>
+      <button class="hero-auth-link" id="myReportsBtn" style="display:none;" data-i18n="my_reports">My Reports</button>
+      <button class="hero-auth-link" id="signOutBtn" style="display:none;" data-i18n="sign_out">Sign Out</button>
+    </div>
+    <div class="alert-banner" id="alertBanner">
+      <button class="x" onclick="document.getElementById('alertBanner').style.display='none'">&times;</button>
+      <strong data-i18n="alert_title">Monsoon advisory</strong>
+      <span data-i18n="alert_body">Waterlogging and sewage overflow reports are being prioritized this week.</span>
+      <a href="#" onclick="openReportModal('drainage');return false;" data-i18n="alert_link">Report it now.</a>
+    </div>
+    <div class="hero-grid">
+      <div>
+        <h1 data-i18n="hero_title">HOW CAN WE HELP YOU?</h1>
+        <div class="hero-search">
+          <input type="text" id="heroSearchInput" data-i18n-ph="hero_search_ph">
+          <button id="heroSearchBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg></button>
+        </div>
+      </div>
+      <div class="hero-side">
+        <button class="hero-cta-btn" onclick="openReportModal()" data-i18n="hero_btn_report">Report Problems</button>
+        <button class="hero-cta-btn" onclick="openTrackModal()" data-i18n="hero_btn_track">Look Up Service Requests</button>
+        <button class="hero-cta-btn" onclick="document.getElementById('catSection').scrollIntoView({behavior:'smooth'})" data-i18n="hero_btn_browse">Browse Topics</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS BANNER -->
+<section class="stats-banner">
+  <div class="wrap">
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-num" id="statWeek">—</div>
+        <div class="stat-label" data-i18n="stat_week">reports in past week</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statMonth">—</div>
+        <div class="stat-label" data-i18n="stat_month">fixed in past month</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statUpdates">—</div>
+        <div class="stat-label" data-i18n="stat_updates">updates on reports</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TODAY + UPDATES -->
+<section class="today-section">
+  <div class="wrap">
+    <div class="today-grid">
+      <div class="today-left">
+        <div class="today-title-row">
+          <h2 data-i18n="today_title">NagarClean Today</h2>
+          <span class="today-date" id="todayDate"></span>
+        </div>
+        <div class="status-row">
+          <div class="status-icon ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div><div class="status-label" data-i18n="status1_label">Garbage Collection</div><div class="status-value" data-i18n="status1_value">On Schedule</div></div>
+        </div>
+        <div class="status-row">
+          <div class="status-icon ok"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3s6 6.5 6 11a6 6 0 1 1-12 0c0-4.5 6-11 6-11z" stroke-linejoin="round"/></svg></div>
+          <div><div class="status-label" data-i18n="status2_label">Water Supply</div><div class="status-value" data-i18n="status2_value">Normal</div></div>
+        </div>
+        <div class="status-row">
+          <div class="status-icon warn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9c1.5 1.5 3 1.5 4.5 0S10.5 7.5 12 9s3 1.5 4.5 0 3-1.5 4.5 0M3 15c1.5 1.5 3 1.5 4.5 0s3-1.5 4.5 0 3 1.5 4.5 0 3-1.5 4.5 0" stroke-linecap="round"/></svg></div>
+          <div><div class="status-label" data-i18n="status3_label">Zone 3 Drainage Works</div><div class="status-value" data-i18n="status3_value">In Progress</div></div>
+        </div>
+      </div>
+      <div class="today-right">
+        <div class="update-header">
+          <div class="badge-logo">NagarClean</div>
+          <strong data-i18n="updates_title">Recent Updates</strong>
+        </div>
+        <div class="update-card">
+          <div class="time" data-i18n="update_time">12 hours ago</div>
+          <div data-i18n="update_body">Extra collection vehicles have been deployed in Zones 2 and 3 ahead of the festival weekend. Report any missed pickups directly through NagarClean.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MOST POPULAR -->
+<section class="section">
+  <div class="wrap">
+    <h2 class="section-title" data-i18n="popular_title">Most Popular</h2>
+    <div class="popular-grid">
+      <div class="popular-col">
+        <button data-i18n="pop_1_1" onclick="openReportModal('drainage')">Report Waterlogging</button>
+        <button data-i18n="pop_1_2" onclick="toggleLangFromLink()">NagarClean Language Access</button>
+        <button data-i18n="pop_1_3" onclick="openZoneModal()">Ward Office Directory</button>
+        <button data-i18n="pop_1_4" onclick="openReportModal()">Unauthorized Construction Complaint</button>
+      </div>
+      <div class="popular-col">
+        <button data-i18n="pop_2_1" onclick="openInfo('info_schedule_title','info_schedule_body')">Garbage Collection Schedule</button>
+        <button data-i18n="pop_2_2" onclick="openInfo('info_notify_title','info_notify_body')">Notify Varanasi</button>
+        <button data-i18n="pop_2_3" onclick="openInfo('info_animal_title','info_animal_body')">Stray Animal Assistance</button>
+        <button data-i18n="pop_2_4" onclick="openInfo('info_noise_title','info_noise_body')">Noise Complaints</button>
+      </div>
+      <div class="popular-col">
+        <button data-i18n="pop_3_1" onclick="openInfo('info_roads_title','info_roads_body')">Roads &amp; Footpath Maintenance</button>
+        <button data-i18n="pop_3_2" onclick="openInfo('info_access_title','info_access_body')">Access for Persons with Disabilities</button>
+        <button data-i18n="pop_3_3" onclick="openReportModal('sewage')">Sewage &amp; Drainage</button>
+        <button data-i18n="pop_3_4" onclick="openReportModal('dumping')">Illegal Dumping</button>
+      </div>
+      <div class="popular-col">
+        <button data-i18n="pop_4_1" onclick="openInfo('info_tax_title','info_tax_body')">Property Tax Payments</button>
+        <button data-i18n="pop_4_2" onclick="openInfo('info_certs_title','info_certs_body')">Birth / Death Certificates</button>
+        <button data-i18n="pop_4_3" onclick="openInfo('info_water_title','info_water_body')">Water Supply Notices</button>
+        <button data-i18n="pop_4_4" onclick="openInfo('info_rating_title','info_rating_body')">Cleanliness Rating Info</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRESS RELEASE + OTHER LINKS (in the style of the official Nagar Nigam site) -->
+<section class="section">
+  <div class="wrap">
+    <div class="govlinks-grid">
+      <div class="govlinks-card">
+        <div class="govlinks-card-head" data-i18n="govlinks_press_title">Press Release</div>
+        <ul id="pressReleaseList"></ul>
+      </div>
+      <div class="govlinks-card alt">
+        <div class="govlinks-card-head" data-i18n="govlinks_other_title">Other Links</div>
+        <ul id="otherLinksList"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPLAINT MAP / HEATMAP -->
+<section class="section">
+  <div class="wrap">
+    <div class="map-section-head">
+      <div>
+        <h2 class="section-title" style="margin-bottom:4px;" data-i18n="map_title">Where problems are being reported</h2>
+        <p data-i18n="map_sub" style="margin-bottom:0;">Live view of reports across all zones. Locations are approximate; no reporter names are shown.</p>
+      </div>
+      <div class="map-toggle" role="group">
+        <button id="mapViewMarkersBtn" class="active" data-i18n="map_view_markers">Markers</button>
+        <button id="mapViewHeatBtn" data-i18n="map_view_heat">Heatmap</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="section-map" id="sectionMap"></div>
+    </div>
+    <div class="map-legend" id="mapLegend">
+      <span><span class="dot" style="background:#E08A2C;"></span><span data-i18n="map_legend_open">Open</span></span>
+      <span><span class="dot" style="background:#B5691A;"></span><span data-i18n="map_legend_progress">In progress</span></span>
+      <span><span class="dot" style="background:#2F7D5E;"></span><span data-i18n="map_legend_resolved">Resolved</span></span>
+    </div>
+    <p class="hint" id="mapSourceNote" style="margin-top:6px;"></p>
+  </div>
+</section>
+
+<!-- CATEGORY CARDS -->
+<section class="section-alt" id="catSection">
+  <div class="wrap">
+    <h2 class="section-title" data-i18n="cats_title">What You Can Report</h2>
+    <div class="cat-grid" id="catGrid"></div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="footer-top">
+      <div>
+        <div class="footer-brand-name">NagarClean</div>
+        <p class="footer-tagline" data-i18n="footer_about_body">A citizen-facing sanitation reporting service of Nagar Nigam Varanasi.</p>
+        <div class="connect-icons">
+          <a href="#" title="Website" aria-label="Website" onclick="openInfo('about_title','about_alert');return false;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 4 5.7 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.7-4-9s1.5-6.5 4-9z"/></svg></a>
+          <a href="#" title="Email" aria-label="Email" onclick="openInfo('footer_feedback','footer_feedback_body');return false;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+          <a href="#" title="Community" aria-label="Community" onclick="openZoneModal();return false;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="9" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M2.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5M14 19c0-2.2 1.8-3.8 4-3.8s4 1.6 4 3.8" stroke-linecap="round"/></svg></a>
+        </div>
+        <p style="margin-top:12px;font-size:12.5px;color:#7d8378;" data-i18n="connect_label">Connect with NagarClean</p>
+      </div>
+      <div>
+        <div class="footer-col-title" data-i18n="footer_quicklinks_title">Quick Links</div>
+        <div class="footer-links">
+          <button onclick="openInfo('about_title','about_alert')" data-i18n="footer_about">About NagarClean</button>
+          <button onclick="openReportModal()" data-i18n="foot_report">Report an issue</button>
+          <button onclick="openTrackModal()" data-i18n="nav_track">Look Up Service Requests</button>
+          <button onclick="openZoneModal()" data-i18n="pop_1_3">Ward Office Directory</button>
+        </div>
+      </div>
+      <div>
+        <div class="footer-col-title" data-i18n="footer_help_col_title">Help</div>
+        <div class="footer-links">
+          <button onclick="openInfo('footer_feedback','footer_feedback_body')" data-i18n="footer_feedback">Send Feedback</button>
+          <button onclick="openInfo('footer_privacy','footer_privacy_body')" data-i18n="footer_privacy">Privacy Policy</button>
+        </div>
+        <div class="app-note" data-i18n="app_note">The NagarClean mobile app is coming soon.</div>
+      </div>
+    </div>
+    <div class="footer-bottom-bar">
+      <div class="footer-bottom-links">
+        <a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;" data-i18n="foot_home">Nagar Nigam home</a>
+        <a href="#" onclick="openReportModal();return false;" data-i18n="foot_report">Report an issue</a>
+        <a href="#" onclick="openInfo('footer_feedback','footer_feedback_body');return false;" data-i18n="foot_feedback">Website feedback</a>
+        <a href="#" onclick="document.getElementById('catSection').scrollIntoView({behavior:'smooth'});return false;" data-i18n="foot_services">Services</a>
+      </div>
+      <a href="#" class="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 19V5M5 12l7-7 7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span data-i18n="back_to_top">Back to top</span>
+      </a>
+    </div>
+    <div class="footer-note" data-i18n="footer_note">A prototype civic-tech service — not an official Nagar Nigam Varanasi product.</div>
+  </div>
+</footer>
+
+<!-- REPORT MODAL -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('reportModal')">&times;</button>
+    <div id="reportFormWrap">
+      <h2 data-i18n="report_title">Report an issue</h2>
+      <p data-i18n="report_sub">Photo, location, and a short note — that's all it takes.</p>
+      <div class="banner banner-error" id="reportErr"></div>
+      <label data-i18n="f_category">Category</label>
+      <select id="f-category">
+        <option value="garbage" data-i18n="cat_garbage">Garbage overflow</option>
+        <option value="sewage" data-i18n="cat_sewage">Sewage leakage</option>
+        <option value="dumping" data-i18n="cat_dumping">Illegal dumping</option>
+        <option value="drainage" data-i18n="cat_drainage">Waterlogging / drainage blockage</option>
+        <option value="toilet" data-i18n="cat_toilet">Public toilet issue</option>
+        <option value="sweeping" data-i18n="cat_sweeping">Street cleaning not done</option>
+      </select>
+      <label data-i18n="f_desc">Description</label>
+      <textarea id="f-desc" data-i18n-ph="f_desc_ph"></textarea>
+      <label data-i18n="f_photo">Add a photo</label>
+      <div class="photo-drop" id="photoDrop">
+        <span id="photoDropText" data-i18n="f_photo_hint">Tap to choose a photo</span>
+        <input type="file" accept="image/*" id="f-photo">
+      </div>
+      <label data-i18n="f_loc">Set the location (tap the map or use your location)</label>
+      <div class="modal-map" id="reportMap"></div>
+      <div class="loc-readout"><span>Lat: <code id="latOut">—</code></span><span>Lng: <code id="lngOut">—</code></span></div>
+      <button class="btn btn-outline btn-sm" style="margin-top:8px" id="useLocBtn" type="button" data-i18n="f_use_loc">Use my location</button>
+      <label><span data-i18n="f_name">Name</span> <span style="color:var(--ink-faint);font-weight:400;" data-i18n="f_name_opt">(optional)</span></label>
+      <input type="text" id="f-name" data-i18n-ph="f_name_ph">
+      <button class="btn btn-primary btn-block" style="margin-top:20px;" id="submitBtn" data-i18n="submit_btn">Submit report</button>
+      <p class="hint" style="margin-top:8px;" data-i18n="submit_hint">You'll get a unique tracking ID as soon as this is submitted.</p>
+    </div>
+    <div id="reportSuccessWrap" style="display:none;">
+      <h2 data-i18n="success_title">Report submitted</h2>
+      <p data-i18n="success_sub">Here is your tracking ID — save it to check status later.</p>
+      <div style="background:var(--primary-tint);border-radius:8px;padding:16px;text-align:center;margin:14px 0;">
+        <div class="mono" style="font-size:20px;font-weight:700;color:var(--primary-dark);" id="newIdOut">—</div>
+      </div>
+      <div class="kv"><span data-i18n="success_zone">Zone</span><span id="newZoneOut">—</span></div>
+      <div class="kv"><span data-i18n="success_status">Status</span><span><span class="badge badge-submitted" data-i18n="st_submitted">Submitted</span></span></div>
+      <button class="btn btn-outline btn-block" style="margin-top:16px;" id="trackNewBtn" data-i18n="success_track_btn">Track this report</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRACK MODAL -->
+<div class="modal-overlay" id="trackModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('trackModal')">&times;</button>
+    <h2 data-i18n="track_title">Look up a service request</h2>
+    <p data-i18n="track_sub">Enter your tracking ID to see its current status.</p>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="trackModalInput" class="mono" data-i18n-ph="track_ph">
+      <button class="btn btn-primary" id="trackModalBtn" style="flex:none;" data-i18n="track_btn">Check status</button>
+    </div>
+    <p class="hint" data-i18n="track_sample_hint" style="margin-top:10px;">Try one of these sample IDs:</p>
+    <div id="trackSamples" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    <div id="trackModalResult" style="margin-top:16px;"></div>
+  </div>
+</div>
+
+<!-- INFO MODAL (generic — used by Most Popular links that don't map to a form) -->
+<div class="modal-overlay" id="infoModal">
+  <div class="modal-box" style="max-width:440px;">
+    <button class="modal-close" onclick="closeModal('infoModal')">&times;</button>
+    <h2 id="infoTitle">—</h2>
+    <p id="infoBody" style="margin-bottom:0;">—</p>
+  </div>
+</div>
+
+<!-- ZONE DIRECTORY MODAL -->
+<div class="modal-overlay" id="zoneModal">
+  <div class="modal-box" style="max-width:460px;">
+    <button class="modal-close" onclick="closeModal('zoneModal')">&times;</button>
+    <h2 data-i18n="zone_dir_title">Ward / Zone Office Directory</h2>
+    <p data-i18n="zone_dir_sub">Every report is routed automatically to the office covering that location.</p>
+    <div id="zoneDirList"></div>
+  </div>
+</div>
+
+<!-- SIGN IN MODAL -->
+<div class="modal-overlay" id="signInModal">
+  <div class="modal-box" style="max-width:420px;">
+    <button class="modal-close" onclick="closeModal('signInModal')">&times;</button>
+    <h2 data-i18n="signin_title">Sign in</h2>
+    <p class="hint" data-i18n="auth_demo_note" style="margin-top:-6px;">This is a demo login — accounts are stored only in your browser. Don't use a real password.</p>
+    <div class="banner banner-error" id="signInErr"></div>
+    <label data-i18n="f_email">Email</label>
+    <input type="text" id="si-email" data-i18n-ph="f_email_ph">
+    <label data-i18n="f_password">Password</label>
+    <input type="password" id="si-password" data-i18n-ph="f_password_ph">
+    <button class="btn btn-primary btn-block" style="margin-top:20px;" id="signInSubmitBtn" data-i18n="sign_in">Sign In</button>
+    <p class="hint" style="margin-top:14px;">
+      <span data-i18n="auth_no_account">Don't have an account?</span>
+      <a href="#" onclick="closeModal('signInModal');openModal('signUpModal');return false;" data-i18n="sign_up">Sign Up</a>
+    </p>
+  </div>
+</div>
+
+<!-- SIGN UP MODAL -->
+<div class="modal-overlay" id="signUpModal">
+  <div class="modal-box" style="max-width:420px;">
+    <button class="modal-close" onclick="closeModal('signUpModal')">&times;</button>
+    <h2 data-i18n="signup_title">Create an account</h2>
+    <p class="hint" data-i18n="auth_demo_note" style="margin-top:-6px;">This is a demo login — accounts are stored only in your browser. Don't use a real password.</p>
+    <div class="banner banner-error" id="signUpErr"></div>
+    <label data-i18n="f_name">Name</label>
+    <input type="text" id="su-name" data-i18n-ph="f_name_ph">
+    <label data-i18n="f_email">Email</label>
+    <input type="text" id="su-email" data-i18n-ph="f_email_ph">
+    <label data-i18n="f_password">Password</label>
+    <input type="password" id="su-password" data-i18n-ph="f_password_ph">
+    <button class="btn btn-primary btn-block" style="margin-top:20px;" id="signUpSubmitBtn" data-i18n="sign_up">Sign Up</button>
+    <p class="hint" style="margin-top:14px;">
+      <span data-i18n="auth_have_account">Already have an account?</span>
+      <a href="#" onclick="closeModal('signUpModal');openModal('signInModal');return false;" data-i18n="sign_in">Sign In</a>
+    </p>
+  </div>
+</div>
+
+<!-- MY REPORTS MODAL -->
+<div class="modal-overlay" id="myReportsModal">
+  <div class="modal-box" style="max-width:460px;">
+    <button class="modal-close" onclick="closeModal('myReportsModal')">&times;</button>
+    <h2 data-i18n="my_reports">My Reports</h2>
+    <p class="hint" data-i18n="myreports_sub" style="margin-top:-6px;">Reports submitted from this account, on this device.</p>
+    <div id="myReportsList"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script>
+/* =================== CONFIG =================== */
+// If a NagarClean backend is running here, submissions sync with it live.
+// If not reachable, the page still works fully using bundled sample data.
+const API_BASE = window.location.protocol === 'http:' || window.location.protocol === 'https:' ? window.location.origin : 'http://localhost:4000';
+
+/* =================== i18n =================== */
+const DICT = {
+  en: {
+    official_site:'The Official Website of Nagar Nigam Varanasi',
+    nav_browse:'Browse Topics', nav_report:'Report Problems', nav_track:'Look Up Service Requests', nav_about:'About NagarClean',
+    nav_search_ph:'Search…', about_alert:'NagarClean connects public sanitation reports directly to Nagar Nigam zone offices. This is a prototype civic-tech service.',
+    about_title:'About NagarClean',
+    sign_in:'Sign In', sign_up:'Sign Up', sign_out:'Sign Out', my_reports:'My Reports',
+    greeting_prefix:'Hi, ',
+    signin_title:'Sign in', signup_title:'Create an account',
+    auth_demo_note:'This is a demo login — accounts are stored only in your browser. Don\'t use a real password.',
+    f_email:'Email', f_email_ph:'you@example.com', f_password:'Password', f_password_ph:'Choose a password',
+    auth_no_account:'Don\'t have an account?', auth_have_account:'Already have an account?',
+    auth_err_required:'Please fill in every field.', auth_err_email_exists:'An account with this email already exists — try signing in instead.',
+    auth_err_invalid_login:'Email or password is incorrect.', err_backend:'The report could not be submitted. Please try again.',
+    myreports_sub:'Reports submitted from this account, on this device.', myreports_empty:'No reports yet — sign in before submitting a report and it will show up here.',
+    zone_dir_title:'Ward / Zone Office Directory', zone_dir_sub:'Every report is routed automatically to the office covering that location.',
+    zone_hours:'Mon–Sat, 10 AM – 5 PM',
+    info_schedule_title:'Garbage Collection Schedule', info_schedule_body:'Household waste is collected daily between 6–9 AM in most wards. Missed a pickup? Report it as a "Garbage overflow" and it will be routed to your zone office.',
+    info_notify_title:'Notify Varanasi', info_notify_body:'A future feature for opt-in SMS/email alerts about closures, advisories, and updates near you. Not yet available in this prototype.',
+    info_animal_title:'Stray Animal Assistance', info_animal_body:'For stray or injured animals, contact your local ward office. This category isn\'t yet part of NagarClean\'s reporting flow.',
+    info_noise_title:'Noise Complaints', info_noise_body:'Noise complaints are handled separately from sanitation reports. This prototype currently focuses on garbage, sewage, and drainage issues.',
+    info_roads_title:'Roads & Footpath Maintenance', info_roads_body:'Potholes and footpath damage are handled by the Public Works division, separate from NagarClean\'s sanitation reports.',
+    info_access_title:'Access for Persons with Disabilities', info_access_body:'NagarClean aims to be usable by everyone. If you hit an accessibility barrier using this service, please use the feedback link in the footer.',
+    info_tax_title:'Property Tax Payments', info_tax_body:'Property tax payments are handled on the main Nagar Nigam portal, separate from this sanitation reporting service.',
+    info_certs_title:'Birth / Death Certificates', info_certs_body:'Civil registration documents are issued through the Nagar Nigam records office, separate from this sanitation reporting service.',
+    info_water_title:'Water Supply Notices', info_water_body:'No planned interruptions reported for your area today. Water supply status is shown on the homepage status widget.',
+    info_rating_title:'Cleanliness Rating Info', info_rating_body:'City cleanliness rankings (like Swachh Survekshan) are published annually by the Ministry of Housing & Urban Affairs, based partly on resolved-complaint data like this.',
+    alert_title:'Monsoon advisory', alert_body:'Waterlogging and sewage overflow reports are being prioritized this week.', alert_link:'Report it now.',
+    hero_title:'HOW CAN WE HELP YOU?', hero_search_ph:'I want to…',
+    hero_btn_report:'Report Problems', hero_btn_track:'Look Up Service Requests', hero_btn_browse:'Browse Topics',
+    today_title:'NagarClean Today',
+    status1_label:'Garbage Collection', status1_value:'On Schedule',
+    status2_label:'Water Supply', status2_value:'Normal',
+    status3_label:'Zone 3 Drainage Works', status3_value:'In Progress',
+    updates_title:'Recent Updates', update_time:'12 hours ago',
+    stat_week:'reports in the past week', stat_month:'fixed in the past month', stat_updates:'updates on reports',
+    update_body:'Extra collection vehicles have been deployed in Zones 2 and 3 ahead of the festival weekend. Report any missed pickups directly through NagarClean.',
+    popular_title:'Most Popular',
+    pop_1_1:'Report Waterlogging', pop_1_2:'NagarClean Language Access', pop_1_3:'Ward Office Directory', pop_1_4:'Unauthorized Construction Complaint',
+    pop_2_1:'Garbage Collection Schedule', pop_2_2:'Notify Varanasi', pop_2_3:'Stray Animal Assistance', pop_2_4:'Noise Complaints',
+    pop_3_1:'Roads & Footpath Maintenance', pop_3_2:'Access for Persons with Disabilities', pop_3_3:'Sewage & Drainage', pop_3_4:'Illegal Dumping',
+    pop_4_1:'Property Tax Payments', pop_4_2:'Birth / Death Certificates', pop_4_3:'Water Supply Notices', pop_4_4:'Cleanliness Rating Info',
+    map_title:'Where problems are being reported', map_sub:'Live view of reports across all zones. Locations are approximate; no reporter names are shown.',
+    map_view_markers:'Markers', map_view_heat:'Heatmap',
+    map_legend_open:'Open', map_legend_progress:'In progress', map_legend_resolved:'Resolved',
+    map_source_live:'Showing live reports from the NagarClean backend.',
+    map_source_demo:'Backend not detected — showing bundled demo reports so the map always has something to display.',
+    cats_title:'What You Can Report',
+    cat_garbage:'Garbage overflow', cat_sewage:'Sewage leakage', cat_dumping:'Illegal dumping',
+    cat_drainage:'Waterlogging / drainage blockage', cat_toilet:'Public toilet issue', cat_sweeping:'Street cleaning not done',
+    cat_garbage_d:'Overflowing bins or uncollected household waste.',
+    cat_sewage_d:'Open or leaking sewage lines.',
+    cat_toilet_d:'Maintenance issues at public conveniences.',
+    cat_dumping_d:'Waste dumped outside designated collection points.',
+    cat_sweeping_d:'Streets or public areas left unswept.',
+    cat_drainage_d:'Blocked drains causing waterlogging.',
+    cat_status_t:'Check request status', cat_status_d:'Look up any tracking ID to see current status.',
+    cat_all_t:'Browse all categories', cat_all_d:'See every kind of sanitation issue you can report.',
+    connect_label:'Connect with NagarClean',
+    footer_about_body:'A citizen-facing sanitation reporting service of Nagar Nigam Varanasi.',
+    footer_quicklinks_title:'Quick Links', footer_help_col_title:'Help',
+    footer_feedback_body:'Feedback collection isn\'t wired up in this prototype yet — in production this would open a short form or mail link.',
+    footer_privacy_body:'This prototype stores report data only in your browser (or a local demo backend) for demonstration purposes. A production deployment would publish a full privacy policy here.',
+    back_to_top:'Back to top',
+    footer_about:'About NagarClean', footer_feedback:'Send Feedback', footer_privacy:'Privacy Policy',
+    app_note:'The NagarClean mobile app is coming soon.',
+    foot_home:'Nagar Nigam home', foot_report:'Report an issue', foot_feedback:'Website feedback', foot_services:'Services',
+    footer_note:'A prototype civic-tech service — not an official Nagar Nigam Varanasi product.',
+    report_title:'Report an issue', report_sub:'Photo, location, and a short note — that\'s all it takes.',
+    f_category:'Category', f_desc:'Description', f_desc_ph:'e.g. Garbage hasn\'t been collected in 3 days, bad smell nearby',
+    f_photo:'Add a photo', f_photo_hint:'Tap to choose a photo',
+    f_loc:'Set the location (tap the map or use your location)', f_use_loc:'Use my location',
+    f_name:'Name', f_name_opt:'(optional)', f_name_ph:'Your name',
+    submit_btn:'Submit report', submit_hint:'You\'ll get a unique tracking ID as soon as this is submitted.',
+    err_loc:'Please choose a location by tapping the map or using the location button.',
+    success_title:'Report submitted', success_sub:'Here is your tracking ID — save it to check status later.',
+    success_zone:'Zone', success_status:'Status', success_track_btn:'Track this report',
+    track_title:'Look up a service request', track_sub:'Enter your tracking ID to see its current status.',
+    track_ph:'e.g. NC-VNS-2026-00001', track_btn:'Check status', track_sample_hint:'Try one of these sample IDs:',
+    track_notfound:'No report found with that tracking ID. Please double-check and try again.',
+    st_submitted:'Submitted', st_verified:'Verified', st_assigned:'Assigned', st_progress:'In progress', st_resolved:'Resolved',
+    tl_submitted:'Report submitted', tl_verified:'Verified by zone office', tl_assigned:'Vehicle/worker assigned',
+    tl_progress:'Work in progress', tl_resolved:'Cleanup completed',
+    label_category:'Category', label_zone:'Zone', label_assigned:'Assigned to',
+    search_no_match:'Opening a general report form for that — you can pick the exact category inside.',
+    govlinks_press_title:'Press Release', govlinks_other_title:'Other Links',
+    pr_housetax:'Drive for House Tax Collection', pr_housetax_body:'Zone teams are running door-to-door house-tax collection drives this month. Contact your ward office for outstanding dues and receipts.',
+    pr_swachh:'Workshop on Swachh Bharat', pr_swachh_body:'Community workshops on Swachh Bharat practices are held periodically at ward offices. Watch this space for the next scheduled date.',
+    pr_encroach:'Drive for Illegal Encroachments', pr_encroach_body:'Enforcement drives against illegal encroachments on public land and footpaths are ongoing across zones.',
+    pr_adpenalty:'Penalty on Unauthorized Advertisements', pr_adpenalty_body:'Unauthorized hoardings and wall advertisements are subject to penalties under municipal by-laws.',
+    pr_telecast:'Live Telecast of Swachhta Hi Sewa', pr_telecast_body:'Swachhta Hi Sewa campaign events are live-telecast on official channels during the campaign period.',
+    pr_polybag:'Drive for Stopping Polybag Use', pr_polybag_body:'Awareness and enforcement drives against single-use polybags continue across markets and residential areas.',
+    ol_airquality:'Air Quality Information & Services', ol_airquality_body:'Air quality monitoring and advisories for Varanasi are published by the pollution control board and the municipal corporation.',
+    ol_citymap:'City Map', ol_citymap_body:'A ward-wise city map is available at the Nagar Nigam office and on the main municipal portal.',
+    ol_finance:'Financial Statements', ol_finance_body:'Annual financial statements and budgets of Nagar Nigam Varanasi are published on the main municipal portal.',
+    ol_sanitary:'Sanitary Beat List', ol_sanitary_body:'The sanitary beat list shows which sanitation worker and route covers each street. Available at your ward office.',
+    ol_rti:'RTI Info', ol_rti_body:'Right to Information (RTI) applications for Nagar Nigam Varanasi can be filed through the state RTI portal or in person at the RTI cell.',
+    ol_citizencharter:'Citizen Charter', ol_citizencharter_body:'The Citizen Charter lists the services Nagar Nigam commits to and their expected turnaround times.',
+    ol_shelter:'Shelter Homes', ol_shelter_body:'Details of night shelters and shelter homes run by the municipal corporation are listed on the main portal.',
+    ol_usefullinks:'Useful Links', ol_usefullinks_body:'A collection of useful links to allied state and central government departments and services.',
+    ol_usefuldept:'Useful Links for Department', ol_usefuldept_body:'Internal and inter-department reference links for Nagar Nigam staff and empanelled contractors.',
+    ol_amrut:'Amrut Reforms 2017-19', ol_amrut_body:'Progress reports on AMRUT mission reforms (2017–19) undertaken by the municipal corporation.',
+    ol_orders:'Orders and Circular', ol_orders_body:'Administrative orders and circulars issued by Nagar Nigam Varanasi.',
+    ol_reports:'Reports and Downloads', ol_reports_body:'Downloadable reports, forms, and documents published by the municipal corporation.',
+    ol_iec:'IEC Activities', ol_iec_body:'Information, Education and Communication (IEC) activities and campaign material for public sanitation awareness.',
+    ol_pmay:'PMAY Related', ol_pmay_body:'Information related to Pradhan Mantri Awas Yojana (PMAY) housing scheme beneficiaries and applications.',
+    ol_notice207:'Notice 207', ol_notice207_body:'Public notice #207 and related municipal announcements.',
+    govlinks_placeholder_note:'This is informational content from a prototype — in a full deployment this would link to the live document or page.',
+  },
+  hi: {
+    official_site:'वाराणसी नगर निगम की आधिकारिक वेबसाइट',
+    nav_browse:'श्रेणियाँ देखें', nav_report:'शिकायत दर्ज करें', nav_track:'शिकायत ट्रैक करें', nav_about:'NagarClean के बारे में',
+    nav_search_ph:'खोजें…', about_alert:'NagarClean सार्वजनिक सफाई शिकायतों को सीधे नगर निगम ज़ोन कार्यालयों से जोड़ता है। यह एक प्रोटोटाइप सिविक-टेक सेवा है।',
+    about_title:'NagarClean के बारे में',
+    sign_in:'साइन इन', sign_up:'साइन अप', sign_out:'साइन आउट', my_reports:'मेरी शिकायतें',
+    greeting_prefix:'नमस्ते, ',
+    signin_title:'साइन इन करें', signup_title:'खाता बनाएं',
+    auth_demo_note:'यह एक डेमो लॉगिन है — खाते सिर्फ आपके ब्राउज़र में सेव होते हैं। असली पासवर्ड इस्तेमाल न करें।',
+    f_email:'ईमेल', f_email_ph:'you@example.com', f_password:'पासवर्ड', f_password_ph:'एक पासवर्ड चुनें',
+    auth_no_account:'खाता नहीं है?', auth_have_account:'पहले से खाता है?',
+    auth_err_required:'कृपया सभी फ़ील्ड भरें।', auth_err_email_exists:'इस ईमेल से पहले से खाता मौजूद है — कृपया साइन इन करें।',
+    auth_err_invalid_login:'ईमेल या पासवर्ड गलत है।', err_backend:'शिकायत दर्ज नहीं हो सकी। कृपया फिर प्रयास करें।',
+    myreports_sub:'इस खाते से, इस डिवाइस पर दर्ज की गई शिकायतें।', myreports_empty:'अभी तक कोई शिकायत नहीं — साइन इन करके शिकायत दर्ज करें, वह यहाँ दिखेगी।',
+    zone_dir_title:'वार्ड / ज़ोन कार्यालय निर्देशिका', zone_dir_sub:'हर शिकायत लोकेशन के आधार पर संबंधित कार्यालय को अपने आप भेज दी जाती है।',
+    zone_hours:'सोम–शनि, सुबह 10 – शाम 5 बजे',
+    info_schedule_title:'कूड़ा संग्रहण कार्यक्रम', info_schedule_body:'ज़्यादातर वार्डों में घरेलू कूड़ा सुबह 6–9 बजे के बीच रोज़ उठाया जाता है। कूड़ा नहीं उठा? इसे "कूड़ा जमा / ओवरफ्लो" के रूप में रिपोर्ट करें, यह आपके ज़ोन कार्यालय तक पहुँच जाएगा।',
+    info_notify_title:'सूचित करें वाराणसी', info_notify_body:'यह एक भविष्य की सुविधा है — SMS/ईमेल के ज़रिए आस-पास की सूचनाएं पाने के लिए। यह प्रोटोटाइप में अभी उपलब्ध नहीं है।',
+    info_animal_title:'आवारा पशु सहायता', info_animal_body:'आवारा या घायल पशुओं के लिए अपने स्थानीय वार्ड कार्यालय से संपर्क करें। यह श्रेणी अभी NagarClean की रिपोर्टिंग प्रक्रिया का हिस्सा नहीं है।',
+    info_noise_title:'ध्वनि प्रदूषण शिकायत', info_noise_body:'ध्वनि प्रदूषण की शिकायतें सफाई शिकायतों से अलग तरीके से संभाली जाती हैं। यह प्रोटोटाइप अभी सिर्फ कूड़ा, सीवेज और जल निकासी पर केंद्रित है।',
+    info_roads_title:'सड़क एवं फुटपाथ रखरखाव', info_roads_body:'गड्ढे और फुटपाथ की क्षति लोक निर्माण विभाग द्वारा संभाली जाती है, NagarClean की सफाई शिकायतों से अलग।',
+    info_access_title:'दिव्यांगजन हेतु सुविधा', info_access_body:'NagarClean हर किसी के लिए उपयोग में आसान बनाने का लक्ष्य रखता है। कोई भी दिक्कत आए तो फुटर में दिए फीडबैक लिंक का उपयोग करें।',
+    info_tax_title:'संपत्ति कर भुगतान', info_tax_body:'संपत्ति कर भुगतान मुख्य नगर निगम पोर्टल पर होता है, इस सफाई रिपोर्टिंग सेवा से अलग।',
+    info_certs_title:'जन्म / मृत्यु प्रमाण पत्र', info_certs_body:'नागरिक पंजीकरण दस्तावेज़ नगर निगम रिकॉर्ड कार्यालय से जारी होते हैं, इस सफाई सेवा से अलग।',
+    info_water_title:'जल आपूर्ति सूचना', info_water_body:'आज आपके क्षेत्र के लिए कोई नियोजित बाधा नहीं बताई गई है। जल आपूर्ति की स्थिति होमपेज के स्टेटस विजेट में दिखती है।',
+    info_rating_title:'स्वच्छता रेटिंग जानकारी', info_rating_body:'शहर की स्वच्छता रैंकिंग (जैसे स्वच्छ सर्वेक्षण) आवास एवं शहरी कार्य मंत्रालय द्वारा सालाना प्रकाशित होती है, जो आंशिक रूप से इस तरह के हल हुए शिकायत डेटा पर आधारित होती है।',
+    alert_title:'मानसून सलाह', alert_body:'इस हफ्ते जलभराव और सीवेज ओवरफ्लो की शिकायतों को प्राथमिकता दी जा रही है।', alert_link:'अभी रिपोर्ट करें।',
+    hero_title:'हम आपकी कैसे मदद कर सकते हैं?', hero_search_ph:'मुझे चाहिए…',
+    hero_btn_report:'शिकायत दर्ज करें', hero_btn_track:'शिकायत ट्रैक करें', hero_btn_browse:'श्रेणियाँ देखें',
+    today_title:'NagarClean आज',
+    status1_label:'कूड़ा संग्रहण', status1_value:'समय पर',
+    status2_label:'जल आपूर्ति', status2_value:'सामान्य',
+    status3_label:'ज़ोन 3 जल निकासी कार्य', status3_value:'जारी है',
+    updates_title:'हाल की सूचनाएं', update_time:'12 घंटे पहले',
+    stat_week:'पिछले सप्ताह की शिकायतें', stat_month:'पिछले महीने हल हुईं', stat_updates:'शिकायतों पर अपडेट',
+    update_body:'त्योहार के सप्ताहांत से पहले ज़ोन 2 और 3 में अतिरिक्त संग्रहण वाहन भेजे गए हैं। किसी भी छूटे हुए संग्रहण की शिकायत सीधे NagarClean के माध्यम से करें।',
+    popular_title:'लोकप्रिय',
+    pop_1_1:'जलभराव की शिकायत करें', pop_1_2:'NagarClean भाषा सहायता', pop_1_3:'वार्ड कार्यालय निर्देशिका', pop_1_4:'अवैध निर्माण शिकायत',
+    pop_2_1:'कूड़ा संग्रहण कार्यक्रम', pop_2_2:'सूचित करें वाराणसी', pop_2_3:'आवारा पशु सहायता', pop_2_4:'ध्वनि प्रदूषण शिकायत',
+    pop_3_1:'सड़क एवं फुटपाथ रखरखाव', pop_3_2:'दिव्यांगजन हेतु सुविधा', pop_3_3:'सीवेज एवं जल निकासी', pop_3_4:'अवैध कूड़ा डंपिंग',
+    pop_4_1:'संपत्ति कर भुगतान', pop_4_2:'जन्म / मृत्यु प्रमाण पत्र', pop_4_3:'जल आपूर्ति सूचना', pop_4_4:'स्वच्छता रेटिंग जानकारी',
+    map_title:'समस्याएं कहाँ रिपोर्ट हो रही हैं', map_sub:'सभी ज़ोन की लाइव शिकायतें। लोकेशन अनुमानित है; रिपोर्ट करने वाले का नाम नहीं दिखाया जाता।',
+    map_view_markers:'मार्कर', map_view_heat:'हीटमैप',
+    map_legend_open:'खुली हुई', map_legend_progress:'कार्य जारी', map_legend_resolved:'हल हो गई',
+    map_source_live:'NagarClean बैकएंड से लाइव डेटा दिखाया जा रहा है।',
+    map_source_demo:'बैकएंड नहीं मिला — इसलिए डेमो शिकायतें दिखाई जा रही हैं, ताकि नक़्शा हमेशा कुछ न कुछ दिखाए।',
+    cats_title:'आप क्या रिपोर्ट कर सकते हैं',
+    cat_garbage:'कूड़ा जमा / ओवरफ्लो', cat_sewage:'सीवेज लीकेज', cat_dumping:'अवैध कूड़ा डंपिंग',
+    cat_drainage:'जलभराव / नाली जाम', cat_toilet:'सार्वजनिक शौचालय की समस्या', cat_sweeping:'सड़क की सफाई नहीं हुई',
+    cat_garbage_d:'कूड़ेदान भर गए हैं या घरेलू कूड़ा नहीं उठाया गया।',
+    cat_sewage_d:'खुली या लीक होती सीवेज लाइनें।',
+    cat_toilet_d:'सार्वजनिक शौचालयों में रखरखाव की समस्या।',
+    cat_dumping_d:'निर्धारित स्थान के बाहर कूड़ा डाला गया।',
+    cat_sweeping_d:'सड़कें या सार्वजनिक स्थान साफ नहीं हुए।',
+    cat_drainage_d:'नाली जाम होने से जलभराव।',
+    cat_status_t:'शिकायत की स्थिति देखें', cat_status_d:'किसी भी ट्रैकिंग ID की वर्तमान स्थिति देखें।',
+    cat_all_t:'सभी श्रेणियाँ देखें', cat_all_d:'सफाई से जुड़ी सभी तरह की समस्याएं देखें।',
+    connect_label:'NagarClean से जुड़ें',
+    footer_about_body:'नगर निगम वाराणसी की नागरिक सेवा, जो सफाई शिकायतें सीधे दर्ज करने की सुविधा देती है।',
+    footer_quicklinks_title:'त्वरित लिंक', footer_help_col_title:'सहायता',
+    footer_feedback_body:'इस प्रोटोटाइप में फीडबैक कलेक्शन अभी सेट नहीं है — असली वर्शन में यहाँ एक छोटा फॉर्म या मेल लिंक खुलेगा।',
+    footer_privacy_body:'यह प्रोटोटाइप डेमो के लिए डेटा सिर्फ आपके ब्राउज़र (या लोकल डेमो बैकएंड) में सेव करता है। असली deployment में यहाँ पूरी गोपनीयता नीति दी जाएगी।',
+    back_to_top:'ऊपर जाएं',
+    footer_about:'NagarClean के बारे में', footer_feedback:'फीडबैक भेजें', footer_privacy:'गोपनीयता नीति',
+    app_note:'NagarClean मोबाइल ऐप जल्द आ रहा है।',
+    foot_home:'नगर निगम होम', foot_report:'शिकायत दर्ज करें', foot_feedback:'वेबसाइट फीडबैक', foot_services:'सेवाएं',
+    footer_note:'यह एक प्रोटोटाइप सिविक-टेक सेवा है — नगर निगम वाराणसी का आधिकारिक उत्पाद नहीं।',
+    report_title:'शिकायत दर्ज करें', report_sub:'फोटो, लोकेशन और एक छोटा विवरण — बस इतना ही चाहिए।',
+    f_category:'श्रेणी', f_desc:'विवरण', f_desc_ph:'जैसे: पिछले 3 दिन से कूड़ा नहीं उठाया गया, बदबू आ रही है',
+    f_photo:'फोटो जोड़ें', f_photo_hint:'फोटो चुनने के लिए टैप करें',
+    f_loc:'जगह चुनें (नक़्शे पर टैप करें या अपनी लोकेशन इस्तेमाल करें)', f_use_loc:'मेरी लोकेशन इस्तेमाल करें',
+    f_name:'नाम', f_name_opt:'(वैकल्पिक)', f_name_ph:'आपका नाम',
+    submit_btn:'शिकायत भेजें', submit_hint:'जमा करते ही आपको एक यूनिक ट्रैकिंग ID मिलेगी।',
+    err_loc:'कृपया नक़्शे पर टैप करके या लोकेशन बटन से जगह चुनें।',
+    success_title:'शिकायत दर्ज हो गई', success_sub:'यह रही आपकी ट्रैकिंग ID — बाद में स्थिति देखने के लिए इसे संभालकर रखें।',
+    success_zone:'ज़ोन', success_status:'स्थिति', success_track_btn:'इसे ट्रैक करें',
+    track_title:'शिकायत की स्थिति देखें', track_sub:'वर्तमान स्थिति देखने के लिए ट्रैकिंग ID डालें।',
+    track_ph:'जैसे NC-VNS-2026-00001', track_btn:'स्थिति देखें', track_sample_hint:'इनमें से कोई सैंपल ID आज़माएं:',
+    track_notfound:'इस ट्रैकिंग ID से कोई शिकायत नहीं मिली। कृपया दोबारा जाँचें।',
+    st_submitted:'दर्ज हुई', st_verified:'सत्यापित', st_assigned:'असाइन हुई', st_progress:'कार्य जारी', st_resolved:'हल हो गई',
+    tl_submitted:'शिकायत दर्ज हुई', tl_verified:'ज़ोन कार्यालय द्वारा सत्यापित', tl_assigned:'वाहन/कर्मचारी असाइन हुआ',
+    tl_progress:'कार्य जारी है', tl_resolved:'सफाई पूरी हुई',
+    label_category:'श्रेणी', label_zone:'ज़ोन', label_assigned:'असाइन',
+    search_no_match:'उसके लिए सामान्य रिपोर्ट फॉर्म खोला जा रहा है — अंदर सही श्रेणी चुन सकते हैं।',
+    govlinks_press_title:'प्रेस विज्ञप्ति', govlinks_other_title:'अन्य लिंक',
+    pr_housetax:'हाउस टैक्स वसूली अभियान', pr_housetax_body:'इस महीने ज़ोन टीमें घर-घर जाकर हाउस टैक्स वसूली अभियान चला रही हैं। बकाया राशि और रसीद के लिए अपने वार्ड कार्यालय से संपर्क करें।',
+    pr_swachh:'स्वच्छ भारत पर कार्यशाला', pr_swachh_body:'स्वच्छ भारत प्रथाओं पर सामुदायिक कार्यशालाएं समय-समय पर वार्ड कार्यालयों में आयोजित होती हैं। अगली तारीख के लिए यह जगह देखें।',
+    pr_encroach:'अवैध अतिक्रमण अभियान', pr_encroach_body:'सार्वजनिक भूमि और फुटपाथों पर अवैध अतिक्रमण के खिलाफ कार्रवाई अभियान सभी ज़ोन में जारी है।',
+    pr_adpenalty:'अनधिकृत विज्ञापनों पर जुर्माना', pr_adpenalty_body:'अनधिकृत होर्डिंग और दीवार विज्ञापनों पर नगरपालिका उपनियमों के तहत जुर्माना लगाया जाता है।',
+    pr_telecast:'स्वच्छता ही सेवा का सीधा प्रसारण', pr_telecast_body:'स्वच्छता ही सेवा अभियान की गतिविधियों का सीधा प्रसारण अभियान अवधि के दौरान आधिकारिक चैनलों पर होता है।',
+    pr_polybag:'पॉलीबैग रोकने का अभियान', pr_polybag_body:'बाज़ारों और आवासीय क्षेत्रों में सिंगल-यूज़ पॉलीबैग के खिलाफ जागरूकता और कार्रवाई अभियान जारी है।',
+    ol_airquality:'वायु गुणवत्ता जानकारी एवं सेवाएं', ol_airquality_body:'वाराणसी के लिए वायु गुणवत्ता निगरानी और सलाह प्रदूषण नियंत्रण बोर्ड और नगर निगम द्वारा प्रकाशित की जाती है।',
+    ol_citymap:'शहर का नक़्शा', ol_citymap_body:'वार्डवार शहर का नक़्शा नगर निगम कार्यालय और मुख्य नगरपालिका पोर्टल पर उपलब्ध है।',
+    ol_finance:'वित्तीय विवरण', ol_finance_body:'नगर निगम वाराणसी के वार्षिक वित्तीय विवरण और बजट मुख्य नगरपालिका पोर्टल पर प्रकाशित होते हैं।',
+    ol_sanitary:'सैनिटरी बीट सूची', ol_sanitary_body:'सैनिटरी बीट सूची दिखाती है कि कौन सा सफाई कर्मचारी और मार्ग किस सड़क को कवर करता है। यह आपके वार्ड कार्यालय में उपलब्ध है।',
+    ol_rti:'RTI जानकारी', ol_rti_body:'नगर निगम वाराणसी के लिए सूचना का अधिकार (RTI) आवेदन राज्य RTI पोर्टल के माध्यम से या सीधे RTI सेल में जमा किए जा सकते हैं।',
+    ol_citizencharter:'सिटीज़न चार्टर', ol_citizencharter_body:'सिटीज़न चार्टर में नगर निगम द्वारा दी जाने वाली सेवाएं और उनकी अपेक्षित समय-सीमा सूचीबद्ध है।',
+    ol_shelter:'शेल्टर होम्स', ol_shelter_body:'नगर निगम द्वारा संचालित रैन बसेरों और शेल्टर होम्स का विवरण मुख्य पोर्टल पर सूचीबद्ध है।',
+    ol_usefullinks:'उपयोगी लिंक', ol_usefullinks_body:'संबंधित राज्य व केंद्र सरकार विभागों और सेवाओं के उपयोगी लिंक का संग्रह।',
+    ol_usefuldept:'विभाग हेतु उपयोगी लिंक', ol_usefuldept_body:'नगर निगम कर्मचारियों और सूचीबद्ध ठेकेदारों के लिए आंतरिक व अंतर-विभागीय संदर्भ लिंक।',
+    ol_amrut:'अमृत सुधार 2017-19', ol_amrut_body:'नगर निगम द्वारा किए गए AMRUT मिशन सुधार (2017–19) पर प्रगति रिपोर्ट।',
+    ol_orders:'आदेश एवं परिपत्र', ol_orders_body:'नगर निगम वाराणसी द्वारा जारी प्रशासनिक आदेश और परिपत्र।',
+    ol_reports:'रिपोर्ट्स एवं डाउनलोड', ol_reports_body:'नगर निगम द्वारा प्रकाशित डाउनलोड योग्य रिपोर्ट, फॉर्म और दस्तावेज़।',
+    ol_iec:'IEC गतिविधियां', ol_iec_body:'सार्वजनिक स्वच्छता जागरूकता के लिए सूचना, शिक्षा और संचार (IEC) गतिविधियां व अभियान सामग्री।',
+    ol_pmay:'PMAY संबंधित', ol_pmay_body:'प्रधानमंत्री आवास योजना (PMAY) के लाभार्थियों और आवेदनों से जुड़ी जानकारी।',
+    ol_notice207:'सूचना 207', ol_notice207_body:'सार्वजनिक सूचना #207 और संबंधित नगरपालिका घोषणाएं।',
+    govlinks_placeholder_note:'यह एक प्रोटोटाइप की जानकारी है — असली deployment में यह सीधे संबंधित दस्तावेज़ या पेज से जुड़ा होगा।',
+  }
+};
+function getLang(){ return localStorage.getItem('nc_lang') || 'hi'; }
+function setLang(lang){ localStorage.setItem('nc_lang', lang); applyLang(); }
+function toggleLangFromLink(){ setLang(getLang()==='hi' ? 'en' : 'hi'); }
+function t(key){ const lang = getLang(); return (DICT[lang] && DICT[lang][key]) || DICT.en[key] || key; }
+function applyLang(){
+  const lang = getLang();
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.getAttribute('data-i18n')));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => el.setAttribute('placeholder', t(el.getAttribute('data-i18n-ph'))));
+  document.querySelectorAll('.lang-square button').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  renderCatCards();
+  renderGovLinks();
+  renderTodayDate();
+  renderStatsBanner();
+  document.getElementById('mapSourceNote').textContent = usingLiveData ? t('map_source_live') : t('map_source_demo');
+  if(mapReady) renderSectionMap();
+}
+
+/* =================== DATA =================== */
+const ZONES = [
+  { id:'Z1', name_en:'Zone 1 — Dashashwamedh', name_hi:'ज़ोन 1 — दशाश्वमेध', lat:25.3070, lng:83.0105 },
+  { id:'Z2', name_en:'Zone 2 — Sigra',          name_hi:'ज़ोन 2 — सिगरा',      lat:25.3106, lng:82.9878 },
+  { id:'Z3', name_en:'Zone 3 — Bhelupur',        name_hi:'ज़ोन 3 — भेलूपुर',    lat:25.2925, lng:83.0018 },
+  { id:'Z4', name_en:'Zone 4 — Manduadih',       name_hi:'ज़ोन 4 — मंडुआडीह',   lat:25.3376, lng:82.9863 },
+];
+function hoursAgo(h){ return new Date(Date.now() - h*3600*1000).toISOString(); }
+function seedData(){
+  const rows = [
+    {zone:'Z1', cat:'garbage', status:'progress',  hrs:30},
+    {zone:'Z2', cat:'sewage',  status:'assigned',  hrs:20},
+    {zone:'Z3', cat:'drainage',status:'submitted', hrs:12},
+    {zone:'Z4', cat:'toilet',  status:'resolved',  hrs:90},
+  ];
+  return rows.map((r,i)=>{
+    const z = ZONES.find(zz=>zz.id===r.zone);
+    return {
+      id:'seed-'+i, code:'NC-VNS-2026-'+String(i+1).padStart(5,'0'),
+      category:r.cat, description:'Demo sample report', name:'',
+      lat:z.lat, lng:z.lng, zone:z.id, photo:null,
+      status:r.status, createdAt:hoursAgo(r.hrs),
+      assignedTo: r.status!=='submitted' ? 'UP65-AB-'+(1000+i) : null,
+    };
+  });
+}
+function nearestZone(lat,lng){
+  let best=ZONES[0], bd=Infinity;
+  ZONES.forEach(z=>{ const d=Math.hypot(z.lat-lat,z.lng-lng); if(d<bd){bd=d;best=z;} });
+  return best.id;
+}
+function zoneName(id){ const z = ZONES.find(x=>x.id===id); return z ? (getLang()==='hi'?z.name_hi:z.name_en) : id; }
+
+let complaints = seedData();
+let usingLiveData = false;
+let seqCounter = complaints.length;
+
+async function loadFromBackend(){
+  try{
+    const res = await fetch(API_BASE + '/api/complaints', { signal: AbortSignal.timeout(2000) });
+    if(!res.ok) throw new Error('bad_status');
+    const rows = await res.json();
+    if(Array.isArray(rows)){ complaints = rows; seqCounter = rows.length; usingLiveData = true; }
+  }catch(e){ usingLiveData = false; }
+  document.getElementById('mapSourceNote').textContent = usingLiveData ? t('map_source_live') : t('map_source_demo');
+  renderSectionMap();
+  renderStatsBanner();
+}
+
+/* =================== COMPLAINT MAP / HEATMAP =================== */
+let sectionMap, markerLayer, heatLayer, mapMode = 'markers', mapReady = false;
+
+function statusColor(status){
+  return status === 'resolved' ? '#2F7D5E' : (status === 'progress' || status === 'assigned' ? '#B5691A' : '#E08A2C');
+}
+
+function initSectionMap(){
+  // Guarded singleton — calling L.map() twice on the same container throws
+  // "Map container is already initialized", which was the earlier bug.
+  if(sectionMap) return;
+  try{
+    sectionMap = L.map('sectionMap', { scrollWheelZoom:false }).setView([25.3176, 82.9739], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'&copy; OpenStreetMap', maxZoom:19 }).addTo(sectionMap);
+    markerLayer = L.layerGroup().addTo(sectionMap);
+    heatLayer = L.heatLayer([], { radius: 32, blur: 24, maxZoom: 14 });
+    mapReady = true;
+    // Force a re-measure once the section has actually finished laying out —
+    // a Leaflet map initialized while its container is still 0-height (a
+    // very common cause of grey/broken tiles) needs this nudge.
+    setTimeout(()=>sectionMap.invalidateSize(), 150);
+    window.addEventListener('resize', ()=>sectionMap.invalidateSize());
+  }catch(err){
+    document.getElementById('sectionMap').innerHTML = '<div class="empty">Map failed to load — the rest of the page still works without it.</div>';
+  }
+}
+
+function renderSectionMap(){
+  if(!mapReady) return;
+
+  markerLayer.clearLayers();
+  const heatPoints = [];
+  complaints.forEach(c=>{
+    const color = statusColor(c.status);
+    L.circleMarker([c.lat, c.lng], { radius:7, color, fillColor:color, fillOpacity:.75, weight:1 })
+      .addTo(markerLayer)
+      .bindPopup('<strong>'+t('cat_'+c.category)+'</strong><br>'+t('st_'+c.status));
+    // Unresolved reports weigh more so the heatmap reads as "where attention
+    // is still needed" rather than just "where anything was ever reported".
+    heatPoints.push([c.lat, c.lng, c.status === 'resolved' ? 0.35 : 1]);
+  });
+  heatLayer.setLatLngs(heatPoints);
+
+  sectionMap.invalidateSize();
+}
+
+function setMapMode(mode){
+  mapMode = mode;
+  document.getElementById('mapViewMarkersBtn').classList.toggle('active', mode === 'markers');
+  document.getElementById('mapViewHeatBtn').classList.toggle('active', mode === 'heat');
+  document.getElementById('mapLegend').classList.toggle('heat-mode', mode === 'heat');
+  if(!mapReady) return;
+  if(mode === 'markers'){
+    if(sectionMap.hasLayer(heatLayer)) sectionMap.removeLayer(heatLayer);
+    if(!sectionMap.hasLayer(markerLayer)) markerLayer.addTo(sectionMap);
+  } else {
+    if(sectionMap.hasLayer(markerLayer)) sectionMap.removeLayer(markerLayer);
+    if(!sectionMap.hasLayer(heatLayer)) heatLayer.addTo(sectionMap);
+  }
+  sectionMap.invalidateSize();
+}
+document.getElementById('mapViewMarkersBtn').addEventListener('click', ()=>setMapMode('markers'));
+document.getElementById('mapViewHeatBtn').addEventListener('click', ()=>setMapMode('heat'));
+
+/* =================== CATEGORY CARDS (illustrated grid) =================== */
+const CAT_ART = {
+  garbage: '<rect width="300" height="188" fill="#E5EEEC"/><rect x="90" y="70" width="120" height="90" rx="4" fill="#14504A"/><rect x="100" y="50" width="100" height="22" rx="3" fill="#0D3733"/><path d="M120 90 v50 M150 90 v50 M180 90 v50" stroke="#5C8983" stroke-width="4" stroke-linecap="round"/><path d="M70 160 h160" stroke="#B9CAC4" stroke-width="6" stroke-linecap="round"/>',
+  sewage: '<rect width="300" height="188" fill="#E5EEEC"/><path d="M150 40c26 30 46 58 46 82a46 46 0 1 1-92 0c0-24 20-52 46-82z" fill="#14504A"/><circle cx="150" cy="128" r="16" fill="#FDF3DA"/>',
+  dumping: '<rect width="300" height="188" fill="#F7E7E5"/><circle cx="150" cy="94" r="52" fill="none" stroke="#B23B3B" stroke-width="8"/><path d="M114 58l72 72" stroke="#B23B3B" stroke-width="8" stroke-linecap="round"/>',
+  drainage: '<rect width="300" height="188" fill="#E5EEEC"/><path d="M40 70c14 14 28 14 42 0s28-14 42 0 28 14 42 0 28-14 42 0 28 14 42 0M40 106c14 14 28 14 42 0s28-14 42 0 28 14 42 0 28-14 42 0 28 14 42 0M40 142c14 14 28 14 42 0s28-14 42 0 28 14 42 0 28-14 42 0 28 14 42 0" stroke="#14504A" stroke-width="6" fill="none" stroke-linecap="round"/>',
+  toilet: '<rect width="300" height="188" fill="#E5EEEC"/><rect x="110" y="34" width="80" height="120" rx="8" fill="#14504A"/><rect x="122" y="50" width="56" height="70" rx="3" fill="#E5EEEC"/><circle cx="150" cy="140" r="5" fill="#E5EEEC"/>',
+  sweeping: '<rect width="300" height="188" fill="#FDF3DA"/><path d="M170 40l58 58-70 70-50 10 10-50z" fill="#E08A2C"/><path d="M118 168l-24 30" stroke="#9C6B04" stroke-width="8" stroke-linecap="round"/>',
+  status: '<rect width="300" height="188" fill="#E5EEEC"/><rect x="96" y="34" width="90" height="120" rx="6" fill="#fff" stroke="#14504A" stroke-width="4"/><path d="M114 60h54M114 78h54M114 96h30" stroke="#14504A" stroke-width="5" stroke-linecap="round"/><circle cx="190" cy="130" r="26" fill="#F0B429" stroke="#0D3733" stroke-width="4"/><path d="M225 165l-20-20" stroke="#0D3733" stroke-width="6" stroke-linecap="round"/>',
+  all: '<rect width="300" height="188" fill="#0D3733"/><g fill="#F0B429"><rect x="70" y="54" width="46" height="46" rx="6"/><rect x="128" y="54" width="46" height="46" rx="6"/><rect x="186" y="54" width="46" height="46" rx="6"/><rect x="70" y="112" width="46" height="46" rx="6"/><rect x="128" y="112" width="46" height="46" rx="6"/><rect x="186" y="112" width="46" height="46" rx="6"/></g>',
+};
+const CAT_LIST = [
+  { id:'garbage',  action:()=>openReportModal('garbage'),  tKey:'cat_garbage',  dKey:'cat_garbage_d' },
+  { id:'sewage',   action:()=>openReportModal('sewage'),   tKey:'cat_sewage',   dKey:'cat_sewage_d' },
+  { id:'toilet',   action:()=>openReportModal('toilet'),   tKey:'cat_toilet',   dKey:'cat_toilet_d' },
+  { id:'dumping',  action:()=>openReportModal('dumping'),  tKey:'cat_dumping',  dKey:'cat_dumping_d' },
+  { id:'sweeping', action:()=>openReportModal('sweeping'), tKey:'cat_sweeping', dKey:'cat_sweeping_d' },
+  { id:'drainage', action:()=>openReportModal('drainage'), tKey:'cat_drainage', dKey:'cat_drainage_d' },
+  { id:'status',   action:()=>openTrackModal(),             tKey:'cat_status_t', dKey:'cat_status_d' },
+  { id:'all',      action:()=>openReportModal(),             tKey:'cat_all_t',    dKey:'cat_all_d' },
+];
+function renderCatCards(){
+  const wrap = document.getElementById('catGrid');
+  wrap.innerHTML = CAT_LIST.map((c,i) =>
+    '<button class="cat-card" onclick="CAT_LIST['+i+'].action()">' +
+      '<span class="art"><svg viewBox="0 0 300 188" xmlns="http://www.w3.org/2000/svg">'+CAT_ART[c.id]+'</svg></span>' +
+      '<span class="body"><h3>'+t(c.tKey)+'</h3><p>'+t(c.dKey)+'</p></span>' +
+    '</button>'
+  ).join('');
+}
+/* =================== PRESS RELEASE / OTHER LINKS =================== */
+const PRESS_RELEASE_ITEMS = [
+  { tKey:'pr_housetax', bodyKey:'pr_housetax_body' },
+  { tKey:'pr_swachh', bodyKey:'pr_swachh_body' },
+  { tKey:'pr_encroach', bodyKey:'pr_encroach_body' },
+  { tKey:'pr_adpenalty', bodyKey:'pr_adpenalty_body' },
+  { tKey:'pr_telecast', bodyKey:'pr_telecast_body' },
+  { tKey:'pr_polybag', bodyKey:'pr_polybag_body' },
+];
+const OTHER_LINKS_ITEMS = [
+  { tKey:'ol_airquality', bodyKey:'ol_airquality_body' },
+  { tKey:'ol_citymap', bodyKey:'ol_citymap_body' },
+  { tKey:'ol_finance', bodyKey:'ol_finance_body' },
+  { tKey:'ol_sanitary', bodyKey:'ol_sanitary_body' },
+  { tKey:'ol_rti', bodyKey:'ol_rti_body' },
+  { tKey:'ol_citizencharter', bodyKey:'ol_citizencharter_body' },
+  { tKey:'ol_shelter', bodyKey:'ol_shelter_body' },
+  { tKey:'ol_usefullinks', bodyKey:'ol_usefullinks_body' },
+  { tKey:'ol_usefuldept', bodyKey:'ol_usefuldept_body' },
+  { tKey:'ol_amrut', bodyKey:'ol_amrut_body' },
+  { tKey:'ol_orders', bodyKey:'ol_orders_body' },
+  { tKey:'ol_reports', bodyKey:'ol_reports_body' },
+  { tKey:'ol_iec', bodyKey:'ol_iec_body' },
+  { tKey:'ol_pmay', bodyKey:'ol_pmay_body' },
+  { tKey:'ol_notice207', bodyKey:'ol_notice207_body' },
+];
+function renderGovLinkList(elId, items){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.innerHTML = items.map((it,i) =>
+    '<li><button type="button" onclick="openGovLink(\''+elId+'\','+i+')">'+t(it.tKey)+'</button></li>'
+  ).join('');
+}
+function openGovLink(elId, i){
+  const list = elId === 'pressReleaseList' ? PRESS_RELEASE_ITEMS : OTHER_LINKS_ITEMS;
+  const item = list[i];
+  if(!item) return;
+  openInfo(item.tKey, item.bodyKey);
+}
+function renderGovLinks(){
+  renderGovLinkList('pressReleaseList', PRESS_RELEASE_ITEMS);
+  renderGovLinkList('otherLinksList', OTHER_LINKS_ITEMS);
+}
+function renderTodayDate(){
+  const locale = getLang()==='hi' ? 'hi-IN' : 'en-IN';
+  document.getElementById('todayDate').textContent = new Date().toLocaleDateString(locale, { day:'numeric', month:'long', year:'numeric' });
+}
+function renderStatsBanner(){
+  // Real counts from the current complaint data — not placeholder numbers —
+  // so the banner never claims more activity than the data actually shows.
+  const now = Date.now();
+  const week = 7*24*3600*1000, month = 30*24*3600*1000;
+  const weekCount = complaints.filter(c => now - new Date(c.createdAt).getTime() <= week).length;
+  const monthResolved = complaints.filter(c => c.status === 'resolved' && now - new Date(c.createdAt).getTime() <= month).length;
+  const updatesCount = complaints.filter(c => c.status !== 'submitted').length;
+  const locale = getLang()==='hi' ? 'hi-IN' : 'en-IN';
+  document.getElementById('statWeek').textContent = weekCount.toLocaleString(locale);
+  document.getElementById('statMonth').textContent = monthResolved.toLocaleString(locale);
+  document.getElementById('statUpdates').textContent = updatesCount.toLocaleString(locale);
+}
+
+/* =================== SEARCH (hero + nav) — routes to the right modal =================== */
+const SEARCH_KEYWORDS = {
+  garbage: ['garbage','trash','waste','कूड़ा','कचरा'],
+  sewage: ['sewage','sewer','सीवेज','नाली की गंदगी'],
+  dumping: ['dump','illegal','डंपिंग','अवैध'],
+  drainage: ['drain','waterlog','जलभराव','नाली'],
+  toilet: ['toilet','washroom','शौचालय'],
+  sweeping: ['sweep','clean street','सफाई','झाड़ू'],
+};
+function runSmartSearch(query){
+  const q = (query||'').trim();
+  if(!q) return;
+  // looks like a tracking ID?
+  if(/^nc-/i.test(q) || /^\d{4,}$/.test(q)){ openTrackModal(q); return; }
+  const lower = q.toLowerCase();
+  for(const [cat, words] of Object.entries(SEARCH_KEYWORDS)){
+    if(words.some(w => lower.includes(w.toLowerCase()))){ openReportModal(cat); return; }
+  }
+  openReportModal();
+}
+document.getElementById('heroSearchBtn').addEventListener('click', ()=>runSmartSearch(document.getElementById('heroSearchInput').value));
+document.getElementById('heroSearchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runSmartSearch(e.target.value); });
+document.getElementById('navSearchBtn').addEventListener('click', ()=>runSmartSearch(document.getElementById('navSearchInput').value));
+document.getElementById('navSearchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runSmartSearch(e.target.value); });
+
+/* =================== MODALS =================== */
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function openInfo(titleKey, bodyKey){
+  document.getElementById('infoTitle').textContent = t(titleKey);
+  document.getElementById('infoBody').textContent = t(bodyKey);
+  openModal('infoModal');
+}
+
+function openZoneModal(){
+  const list = document.getElementById('zoneDirList');
+  list.innerHTML = ZONES.map(z =>
+    '<div class="zone-dir-row"><span class="name">'+(getLang()==='hi'?z.name_hi:z.name_en)+'</span><span class="hours">'+t('zone_hours')+'</span></div>'
+  ).join('');
+  openModal('zoneModal');
+}
+
+/* =================== AUTH (demo only — accounts live in localStorage, not a real backend) =================== */
+function loadUsers(){ try{ return JSON.parse(localStorage.getItem('nc_users')) || []; }catch(e){ return []; } }
+function saveUsers(users){ localStorage.setItem('nc_users', JSON.stringify(users)); }
+function getSession(){ try{ return JSON.parse(localStorage.getItem('nc_session')); }catch(e){ return null; } }
+function setSession(user){ localStorage.setItem('nc_session', JSON.stringify(user)); updateAuthUI(); }
+function clearSession(){ localStorage.removeItem('nc_session'); updateAuthUI(); }
+
+function updateAuthUI(){
+  const session = getSession();
+  const loggedIn = !!session;
+  document.getElementById('signInBtn').style.display = loggedIn ? 'none' : '';
+  document.getElementById('signUpBtn').style.display = loggedIn ? 'none' : '';
+  document.getElementById('authGreeting').style.display = loggedIn ? '' : 'none';
+  document.getElementById('myReportsBtn').style.display = loggedIn ? '' : 'none';
+  document.getElementById('signOutBtn').style.display = loggedIn ? '' : 'none';
+  if(loggedIn){
+    document.getElementById('authGreeting').textContent = t('greeting_prefix') + session.name;
+    // Convenience: pre-fill the report form's name field for a signed-in visitor.
+    const nameField = document.getElementById('f-name');
+    if(nameField && !nameField.value) nameField.value = session.name;
+  }
+}
+function showAuthErr(fieldId, msg){ const b = document.getElementById(fieldId); b.textContent = msg; b.classList.add('show'); }
+function hideAuthErr(fieldId){ document.getElementById(fieldId).classList.remove('show'); }
+
+function handleSignUp(){
+  hideAuthErr('signUpErr');
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim().toLowerCase();
+  const password = document.getElementById('su-password').value;
+  if(!name || !email || !password){ showAuthErr('signUpErr', t('auth_err_required')); return; }
+  const users = loadUsers();
+  if(users.some(u => u.email === email)){ showAuthErr('signUpErr', t('auth_err_email_exists')); return; }
+  users.push({ name, email, password });
+  saveUsers(users);
+  setSession({ name, email });
+  closeModal('signUpModal');
+}
+function handleSignIn(){
+  hideAuthErr('signInErr');
+  const email = document.getElementById('si-email').value.trim().toLowerCase();
+  const password = document.getElementById('si-password').value;
+  const users = loadUsers();
+  const match = users.find(u => u.email === email && u.password === password);
+  if(!match){ showAuthErr('signInErr', t('auth_err_invalid_login')); return; }
+  setSession({ name: match.name, email: match.email });
+  closeModal('signInModal');
+}
+function handleSignOut(){ clearSession(); }
+
+function openMyReportsModal(){
+  const session = getSession();
+  const list = document.getElementById('myReportsList');
+  const mine = session ? complaints.filter(c => (c.reporterEmail && c.reporterEmail === session.email) || (c.name && c.name === session.name)) : [];
+  if(!mine.length){
+    list.innerHTML = '<div class="empty">'+t('myreports_empty')+'</div>';
+  } else {
+    list.innerHTML = mine.map(c =>
+      '<button class="zone-dir-row" style="width:100%;background:none;border:none;border-bottom:1px solid var(--border);text-align:left;cursor:pointer;padding:12px 0;" onclick="closeModal(\'myReportsModal\');openTrackModal(\''+c.code+'\')">' +
+        '<span class="name mono">'+c.code+'</span>' +
+        '<span class="badge badge-'+c.status+'">'+t('st_'+c.status)+'</span>' +
+      '</button>'
+    ).join('');
+  }
+  openModal('myReportsModal');
+}
+
+document.getElementById('signInBtn').addEventListener('click', ()=>openModal('signInModal'));
+document.getElementById('signUpBtn').addEventListener('click', ()=>openModal('signUpModal'));
+document.getElementById('signOutBtn').addEventListener('click', handleSignOut);
+document.getElementById('myReportsBtn').addEventListener('click', openMyReportsModal);
+document.getElementById('signInSubmitBtn').addEventListener('click', handleSignIn);
+document.getElementById('signUpSubmitBtn').addEventListener('click', handleSignUp);
+document.getElementById('si-password').addEventListener('keydown', e=>{ if(e.key==='Enter') handleSignIn(); });
+document.getElementById('su-password').addEventListener('keydown', e=>{ if(e.key==='Enter') handleSignUp(); });
+
+let reportMap, reportMarker, reportLoc = null, photoDataUrl = null;
+function openReportModal(presetCategory){
+  document.getElementById('reportFormWrap').style.display = 'block';
+  document.getElementById('reportSuccessWrap').style.display = 'none';
+  document.getElementById('reportErr').classList.remove('show');
+  if(presetCategory) document.getElementById('f-category').value = presetCategory;
+  openModal('reportModal');
+  // Leaflet needs the container to have a real, painted size before it measures
+  // itself — initializing (or resizing) it a beat after the modal becomes
+  // visible avoids the classic "grey/broken map" bug.
+  requestAnimationFrame(()=>{
+    setTimeout(()=>{
+      try{
+        if(!reportMap){
+          reportMap = L.map('reportMap').setView([25.3176, 82.9739], 12);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'&copy; OpenStreetMap', maxZoom:19}).addTo(reportMap);
+          reportMap.on('click', e => setReportLoc(e.latlng.lat, e.latlng.lng));
+        }
+        reportMap.invalidateSize();
+        setTimeout(()=>reportMap.invalidateSize(), 300);
+      }catch(err){
+        document.getElementById('reportMap').innerHTML = '<div class="empty" style="padding:10px;font-size:12.5px;">Map unavailable — you can still submit without pinpointing on the map by allowing location access.</div>';
+      }
+    }, 80);
+  });
+}
+function setReportLoc(lat,lng){
+  document.getElementById('latOut').textContent = lat.toFixed(5);
+  document.getElementById('lngOut').textContent = lng.toFixed(5);
+  if(reportMarker) reportMarker.setLatLng([lat,lng]); else reportMarker = L.marker([lat,lng]).addTo(reportMap);
+  reportLoc = {lat,lng};
+  document.getElementById('reportErr').classList.remove('show');
+}
+document.getElementById('useLocBtn').addEventListener('click', ()=>{
+  if(!navigator.geolocation){ showReportErr(t('err_loc')); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      if(reportMap){ reportMap.setView([pos.coords.latitude,pos.coords.longitude],15); reportMap.invalidateSize(); }
+      setReportLoc(pos.coords.latitude,pos.coords.longitude);
+    },
+    ()=> showReportErr(t('err_loc'))
+  );
+});
+function showReportErr(msg){ const b=document.getElementById('reportErr'); b.textContent=msg; b.classList.add('show'); }
+function onPhotoChange(e){
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    photoDataUrl = ev.target.result;
+    document.getElementById('photoDrop').innerHTML = '<img src="'+photoDataUrl+'"><input type="file" accept="image/*" id="f-photo" style="position:absolute;inset:0;opacity:0;">';
+    document.getElementById('f-photo').addEventListener('change', onPhotoChange);
+  };
+  reader.readAsDataURL(file);
+}
+document.getElementById('f-photo').addEventListener('change', onPhotoChange);
+
+async function submitReport(){
+  if(!reportLoc){ showReportErr(t('err_loc')); return; }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  const session = getSession();
+  const payload = {
+    category: document.getElementById('f-category').value,
+    description: document.getElementById('f-desc').value.trim(),
+    name: document.getElementById('f-name').value.trim(),
+    lat: reportLoc.lat, lng: reportLoc.lng, photo: photoDataUrl,
+    reporterEmail: session ? session.email : null,
+  };
+  let result = null;
+  if(usingLiveData){
+    try{
+      const res = await fetch(API_BASE + '/api/complaints', {
+        method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload), signal: AbortSignal.timeout(3000)
+      });
+      if(res.ok) result = await res.json();
+    }catch(e){
+      showReportErr(t('err_backend'));
+      btn.disabled = false;
+      return;
+    }
+  }
+  if(!result){
+    seqCounter += 1;
+    const zone = nearestZone(payload.lat, payload.lng);
+    result = {
+      id:'local-'+Date.now(), code:'NC-VNS-2026-'+String(seqCounter).padStart(5,'0'),
+      ...payload, zone, status:'submitted', createdAt:new Date().toISOString(), assignedTo:null,
+    };
+  }
+  complaints.unshift(result);
+  renderStatsBanner();
+  if(mapReady) renderSectionMap();
+  document.getElementById('newIdOut').textContent = result.code;
+  document.getElementById('newZoneOut').textContent = zoneName(result.zone);
+  document.getElementById('reportFormWrap').style.display = 'none';
+  document.getElementById('reportSuccessWrap').style.display = 'block';
+  document.getElementById('trackNewBtn').onclick = ()=>{ closeModal('reportModal'); openTrackModal(result.code); };
+  btn.disabled = false;
+}
+document.getElementById('submitBtn').addEventListener('click', submitReport);
+
+/* =================== TRACK MODAL =================== */
+function renderTrackSamples(){
+  const el = document.getElementById('trackSamples');
+  el.innerHTML = '';
+  complaints.slice(0,3).forEach(c=>{
+    const b = document.createElement('button');
+    b.className = 'btn btn-outline btn-sm mono';
+    b.textContent = c.code;
+    b.onclick = ()=>{ document.getElementById('trackModalInput').value = c.code; runTrackModal(); };
+    el.appendChild(b);
+  });
+}
+function openTrackModal(prefillCode){
+  renderTrackSamples();
+  document.getElementById('trackModalResult').innerHTML = '';
+  if(prefillCode){ document.getElementById('trackModalInput').value = prefillCode; }
+  openModal('trackModal');
+  if(prefillCode) runTrackModal();
+}
+function fmtTime(iso){
+  const d = new Date(iso);
+  const locale = getLang()==='hi' ? 'hi-IN' : 'en-IN';
+  return d.toLocaleDateString(locale,{day:'2-digit',month:'short'}) + ', ' + d.toLocaleTimeString(locale,{hour:'2-digit',minute:'2-digit'});
+}
+function runTrackModal(){
+  const code = document.getElementById('trackModalInput').value.trim();
+  const c = complaints.find(x=>x.code.toLowerCase()===code.toLowerCase());
+  const out = document.getElementById('trackModalResult');
+  if(!c){ out.innerHTML = '<div class="empty">'+t('track_notfound')+'</div>'; return; }
+  const steps = ['submitted','verified','assigned','progress','resolved'];
+  let idx = steps.indexOf(c.status);
+  if(idx === -1) idx = 0;
+  const tlKey = {submitted:'tl_submitted', verified:'tl_verified', assigned:'tl_assigned', progress:'tl_progress', resolved:'tl_resolved'};
+  let tl = '<ul class="timeline">';
+  steps.forEach((s,i)=>{
+    tl += '<li><div class="tl-dot '+(i<=idx?'done':'')+'"></div><div><strong style="font-size:14px;">'+t(tlKey[s])+'</strong>'+(i===0?'<div class="hint">'+fmtTime(c.createdAt)+'</div>':'')+'</div></li>';
+  });
+  tl += '</ul>';
+  out.innerHTML = '<div class="divider" style="margin-top:4px;"></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+      '<span class="mono" style="font-weight:700;">'+c.code+'</span>' +
+      '<span class="badge badge-'+c.status+'">'+t('st_'+c.status)+'</span>' +
+    '</div>' +
+    '<div class="kv" style="margin-top:10px;"><span>'+t('label_category')+'</span><span>'+t('cat_'+c.category)+'</span></div>' +
+    '<div class="kv"><span>'+t('label_zone')+'</span><span>'+zoneName(c.zone)+'</span></div>' +
+    (c.assignedTo ? '<div class="kv"><span>'+t('label_assigned')+'</span><span>'+c.assignedTo+'</span></div>' : '') +
+    tl;
+}
+document.getElementById('trackModalBtn').addEventListener('click', runTrackModal);
+document.getElementById('trackModalInput').addEventListener('keydown', e=>{ if(e.key==='Enter') runTrackModal(); });
+
+/* =================== LANGUAGE TOGGLE WIRING =================== */
+document.querySelectorAll('.lang-square button').forEach(b=>{
+  b.addEventListener('click', ()=> setLang(b.dataset.lang));
+});
+
+/* =================== MOBILE NAV TOGGLE =================== */
+document.getElementById('navToggle').addEventListener('click', ()=>{
+  document.getElementById('navLinks').classList.toggle('open');
+});
+function closeNavPanel(){ document.getElementById('navLinks').classList.remove('open'); }
+window.addEventListener('resize', ()=>{ if(window.innerWidth > 860) closeNavPanel(); });
+
+/* =================== INIT =================== */
+window.addEventListener('load', ()=>{
+  applyLang();
+  updateAuthUI();
+  initSectionMap();
+  renderSectionMap();
+  loadFromBackend();
+});
+</script>
+</body>
+</html>

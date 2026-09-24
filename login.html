@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NagarClean — Staff Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F6F1; --ink:#161A18; --ink-muted:#4B524D; --ink-faint:#7C837D;
+    --primary:#14504A; --primary-dark:#0D3733; --primary-tint:#E5EEEC;
+    --accent:#F0B429; --accent-dark:#9C6B04; --accent-tint:#FDF3DA;
+    --danger:#B23B3B; --danger-tint:#F7E7E5; --border:#DEDBD0;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:linear-gradient(155deg, var(--primary-dark), var(--primary) 60%);
+    color:var(--ink);font-family:'IBM Plex Sans',-apple-system,sans-serif;font-size:15px;line-height:1.5;
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;-webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;font-size:14.5px;}
+  label{display:block;font-size:12.5px;font-weight:600;margin:14px 0 6px;color:var(--ink-muted);}
+  label:first-of-type{margin-top:0;}
+  input[type=text],input[type=password],select{
+    width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--ink);
+  }
+  input:focus,select:focus{outline:2px solid var(--primary);outline-offset:1px;border-color:var(--primary);}
+
+  .page-lang{position:fixed;top:18px;right:18px;display:flex;gap:6px;}
+  .page-lang button{
+    width:32px;height:32px;border-radius:7px;border:1.5px solid rgba(255,255,255,.7);background:transparent;color:#fff;
+    font-weight:700;font-size:13px;
+  }
+  .page-lang button.active{background:#fff;color:var(--primary-dark);border-color:#fff;}
+
+  .auth-wrap{max-width:400px;width:100%;}
+  .auth-card{background:#fff;border-radius:14px;padding:30px 30px 32px;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+  .auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+  .auth-brand .mark{width:38px;height:38px;border-radius:9px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--primary-dark);flex:none;font-size:14px;}
+  .auth-brand .name{font-weight:800;font-size:19px;line-height:1.1;}
+  .auth-brand .tag{font-size:11.5px;color:var(--ink-faint);margin-top:1px;}
+
+  .role-tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .role-tab{
+    flex:1;border:1.5px solid var(--border);background:#fff;border-radius:9px;padding:11px 8px;text-align:center;
+    display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink-muted);font-weight:700;font-size:12.5px;
+  }
+  .role-tab svg{color:var(--ink-faint);}
+  .role-tab.active{border-color:var(--primary);background:var(--primary-tint);color:var(--primary-dark);}
+  .role-tab.active svg{color:var(--primary-dark);}
+
+  .auth-demo-note{background:var(--accent-tint);color:var(--accent-dark);border-radius:8px;padding:9px 12px;font-size:11.5px;margin-bottom:16px;}
+
+  .auth-tabs{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:18px;}
+  .auth-tabs button{flex:1;background:#fff;border:none;padding:10px;font-weight:700;font-size:13.5px;color:var(--ink-muted);}
+  .auth-tabs button.active{background:var(--primary-dark);color:#fff;}
+
+  .auth-view{display:none;}
+  .auth-view.active{display:block;}
+
+  .banner{border-radius:8px;padding:10px 14px;font-size:13px;display:none;margin-bottom:14px;}
+  .banner.show{display:block;}
+  .banner-error{background:var(--danger-tint);color:var(--danger);}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;border-radius:8px;border:none;font-size:14px;font-weight:700;}
+  .btn-primary{background:var(--accent);color:#3A2504;}
+  .btn-block{width:100%;}
+
+  .field-zone{display:none;}
+  .field-zone.show{display:block;}
+
+  .auth-footer-note{text-align:center;margin-top:18px;font-size:12.5px;}
+  .auth-footer-note a{color:#fff;font-weight:600;text-decoration:underline;text-underline-offset:3px;}
+</style>
+</head>
+<body>
+
+<div class="page-lang">
+  <button data-lang="en">A</button>
+  <button data-lang="hi">अ</button>
+</div>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="mark">NC</div>
+      <div><div class="name">NagarClean</div><div class="tag" data-i18n="staff_login_tag">Staff Login</div></div>
+    </div>
+
+    <div class="role-tabs" role="group">
+      <button type="button" class="role-tab active" id="roleTabHq" data-role="hq">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21V8l8-5 8 5v13" stroke-linejoin="round"/><path d="M9 21v-6h6v6" /></svg>
+        <span data-i18n="role_hq">Headquarters</span>
+      </button>
+      <button type="button" class="role-tab" id="roleTabZonal" data-role="zonal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4L3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6.5 9 4z" stroke-linejoin="round"/><path d="M9 4v14M15 6.5v14"/></svg>
+        <span data-i18n="role_zonal">Zone Office</span>
+      </button>
+    </div>
+
+    <div class="auth-demo-note" data-i18n="auth_demo_note">Demo login — accounts are stored only in this browser. Don't use a real password.</div>
+
+    <div class="auth-tabs">
+      <button type="button" id="authTabSignIn" class="active" data-i18n="sign_in">Sign In</button>
+      <button type="button" id="authTabSignUp" data-i18n="sign_up">Sign Up</button>
+    </div>
+
+    <div class="auth-view active" id="authViewSignIn">
+      <div class="banner banner-error" id="signInErr"></div>
+      <label data-i18n="f_email">Email</label>
+      <input type="text" id="si-email">
+      <label data-i18n="f_password">Password</label>
+      <input type="password" id="si-password">
+      <button class="btn btn-primary btn-block" style="margin-top:20px;" id="signInBtn" data-i18n="sign_in">Sign In</button>
+    </div>
+
+    <div class="auth-view" id="authViewSignUp">
+      <div class="banner banner-error" id="signUpErr"></div>
+      <label data-i18n="f_name">Name</label>
+      <input type="text" id="su-name">
+      <label data-i18n="f_email">Email</label>
+      <input type="text" id="su-email">
+      <label data-i18n="f_password">Password</label>
+      <input type="password" id="su-password">
+      <div class="field-zone" id="fieldZone">
+        <label data-i18n="f_zone">Zone office</label>
+        <select id="su-zone"></select>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:20px;" id="signUpBtn" data-i18n="signup_create_btn">Create account</button>
+    </div>
+  </div>
+
+  <div class="auth-footer-note">
+    <span data-i18n="citizen_note">Reporting a sanitation issue instead?</span>
+    <a href="/" data-i18n="citizen_link">Go to the public NagarClean site</a>
+  </div>
+</div>
+
+<script>
+/* =================== i18n =================== */
+const DICT = {
+  en: {
+    staff_login_tag:'Staff Login',
+    role_hq:'Headquarters', role_zonal:'Zone Office',
+    auth_demo_note:'Demo HQ admin: admin@nagarclean.demo / Admin@123. The same email may be used once for HQ and once for a Zone Office.',
+    sign_in:'Sign In', sign_up:'Sign Up', signup_create_btn:'Create account',
+    f_name:'Name', f_email:'Email', f_password:'Password', f_zone:'Zone office',
+    auth_err_required:'Please fill in every field.',
+    auth_err_backend:'The server is unavailable. Start NagarClean with `npm start` and try again.',
+    auth_err_zone_required:'Please choose a zone office.',
+    auth_err_email_exists:'An account already exists for this email and role. You can use the same email for the other role.',
+    auth_err_invalid_login:'No matching account found for that role, email, and password.',
+    citizen_note:'Reporting a sanitation issue instead?',
+    citizen_link:'Go to the public NagarClean site',
+  },
+  hi: {
+    staff_login_tag:'स्टाफ लॉगिन',
+    role_hq:'मुख्यालय', role_zonal:'ज़ोन कार्यालय',
+    auth_demo_note:'डेमो HQ एडमिन: admin@nagarclean.demo / Admin@123। एक ही ईमेल HQ और एक ज़ोन कार्यालय में एक-एक बार इस्तेमाल हो सकता है।',
+    sign_in:'साइन इन', sign_up:'साइन अप', signup_create_btn:'खाता बनाएं',
+    f_name:'नाम', f_email:'ईमेल', f_password:'पासवर्ड', f_zone:'ज़ोन कार्यालय',
+    auth_err_required:'कृपया सभी फ़ील्ड भरें।',
+    auth_err_backend:'सर्वर उपलब्ध नहीं है। `npm start` से NagarClean शुरू करके फिर प्रयास करें।',
+    auth_err_zone_required:'कृपया एक ज़ोन कार्यालय चुनें।',
+    auth_err_email_exists:'इस ईमेल और भूमिका के लिए खाता पहले से मौजूद है। दूसरी भूमिका में यही ईमेल इस्तेमाल किया जा सकता है।',
+    auth_err_invalid_login:'इस भूमिका, ईमेल और पासवर्ड से कोई खाता नहीं मिला।',
+    citizen_note:'सफाई से जुड़ी शिकायत दर्ज करनी है?',
+    citizen_link:'सार्वजनिक NagarClean साइट पर जाएं',
+  }
+};
+function getLang(){ return localStorage.getItem('nc_lang') || 'hi'; }
+function setLang(lang){ localStorage.setItem('nc_lang', lang); applyLang(); }
+function t(key){ const lang = getLang(); return (DICT[lang] && DICT[lang][key]) || DICT.en[key] || key; }
+function applyLang(){
+  const lang = getLang();
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.getAttribute('data-i18n')));
+  document.querySelectorAll('.page-lang button').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  populateZoneSelect();
+}
+document.querySelectorAll('.page-lang button').forEach(b=>{
+  b.addEventListener('click', ()=> setLang(b.dataset.lang));
+});
+
+/* =================== ZONES (must match nagarclean-home / zonal / hq) =================== */
+const ZONES = [
+  { id:'Z1', name_en:'Zone 1 — Dashashwamedh', name_hi:'ज़ोन 1 — दशाश्वमेध' },
+  { id:'Z2', name_en:'Zone 2 — Sigra',          name_hi:'ज़ोन 2 — सिगरा' },
+  { id:'Z3', name_en:'Zone 3 — Bhelupur',        name_hi:'ज़ोन 3 — भेलूपुर' },
+  { id:'Z4', name_en:'Zone 4 — Manduadih',       name_hi:'ज़ोन 4 — मंडुआडीह' },
+];
+function populateZoneSelect(){
+  const sel = document.getElementById('su-zone');
+  const prev = sel.value;
+  sel.innerHTML = ZONES.map(z=>'<option value="'+z.id+'">'+(getLang()==='hi'?z.name_hi:z.name_en)+'</option>').join('');
+  if(prev) sel.value = prev;
+}
+
+/* =================== ROLE SELECTION =================== */
+let currentRole = 'hq';
+function setRole(role){
+  currentRole = role;
+  document.getElementById('roleTabHq').classList.toggle('active', role==='hq');
+  document.getElementById('roleTabZonal').classList.toggle('active', role==='zonal');
+  document.getElementById('fieldZone').classList.toggle('show', role==='zonal');
+  hideErr('signInErr'); hideErr('signUpErr');
+}
+document.getElementById('roleTabHq').addEventListener('click', ()=>setRole('hq'));
+document.getElementById('roleTabZonal').addEventListener('click', ()=>setRole('zonal'));
+
+/* =================== SIGN IN / SIGN UP TABS =================== */
+function showAuthTab(tab){
+  document.getElementById('authTabSignIn').classList.toggle('active', tab==='signin');
+  document.getElementById('authTabSignUp').classList.toggle('active', tab==='signup');
+  document.getElementById('authViewSignIn').classList.toggle('active', tab==='signin');
+  document.getElementById('authViewSignUp').classList.toggle('active', tab==='signup');
+  hideErr('signInErr'); hideErr('signUpErr');
+}
+document.getElementById('authTabSignIn').addEventListener('click', ()=>showAuthTab('signin'));
+document.getElementById('authTabSignUp').addEventListener('click', ()=>showAuthTab('signup'));
+
+function showErr(id, msg){ const b=document.getElementById(id); b.textContent=msg; b.classList.add('show'); }
+function hideErr(id){ document.getElementById(id).classList.remove('show'); }
+
+/* =================== SHARED STAFF ACCOUNTS (HQ + Zone Office) =================== */
+const API_BASE = window.location.protocol === 'http:' || window.location.protocol === 'https:' ? window.location.origin : 'http://localhost:4000';
+
+function setStaffSession(user){ localStorage.setItem('nc_staff_session', JSON.stringify(user)); }
+
+async function authRequest(path, payload){
+  let response;
+  try {
+    response = await fetch(API_BASE + path, {
+      method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload),
+    });
+  } catch (error) {
+    const requestError = new Error('network_error');
+    requestError.code = 'network_error';
+    throw requestError;
+  }
+
+  const body = await response.json().catch(()=>({}));
+  if(!response.ok){ const error = new Error(body.error || 'request_failed'); error.code = body.error || 'request_failed'; throw error; }
+  return body;
+}
+
+function authErrorMessage(error){
+  if(!error || error.code === 'network_error' || error.code === 'request_failed' || error.code === 'server_error') return t('auth_err_backend');
+  if(error.code === 'email_exists') return t('auth_err_email_exists');
+  if(error.code === 'invalid_login') return t('auth_err_invalid_login');
+  if(error.code === 'invalid_credentials' || error.code === 'invalid_profile') return t('auth_err_required');
+  return t('auth_err_backend');
+}
+
+function redirectForRole(role){
+  window.location.href = role === 'hq' ? 'nagarclean-hq_new.html' : 'zonal.html';
+}
+
+async function signIn(){
+  hideErr('signInErr');
+  const email = document.getElementById('si-email').value.trim().toLowerCase();
+  const password = document.getElementById('si-password').value;
+  if(!email || !password){ showErr('signInErr', t('auth_err_required')); return; }
+  try{
+    const result = await authRequest('/api/auth/signin', { email, password, role:currentRole });
+    setStaffSession(result.user);
+    redirectForRole(result.user.role);
+  }catch(error){ showErr('signInErr', authErrorMessage(error)); }
+}
+async function signUp(){
+  hideErr('signUpErr');
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim().toLowerCase();
+  const password = document.getElementById('su-password').value;
+  const zone = document.getElementById('su-zone').value;
+  if(!name || !email || !password){ showErr('signUpErr', t('auth_err_required')); return; }
+  if(currentRole === 'zonal' && !zone){ showErr('signUpErr', t('auth_err_zone_required')); return; }
+  try{
+    const result = await authRequest('/api/auth/signup', { name, email, password, role:currentRole, zone });
+    setStaffSession(result.user);
+    redirectForRole(result.user.role);
+  }catch(error){ showErr('signUpErr', authErrorMessage(error)); }
+}
+document.getElementById('signInBtn').addEventListener('click', signIn);
+document.getElementById('signUpBtn').addEventListener('click', signUp);
+document.getElementById('si-password').addEventListener('keydown', e=>{ if(e.key==='Enter') signIn(); });
+document.getElementById('su-password').addEventListener('keydown', e=>{ if(e.key==='Enter') signUp(); });
+
+/* =================== INIT =================== */
+window.addEventListener('load', ()=>{
+  applyLang();
+});
+</script>
+</body>
+</html>
