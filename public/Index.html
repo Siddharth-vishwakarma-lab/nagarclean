@@ -84,6 +84,8 @@
   .hero-auth-link{background:none;border:none;color:#fff;font-weight:600;font-size:13.5px;text-decoration:underline;text-underline-offset:3px;}
   .hero-auth-btn{background:none;border:1.5px solid #fff;color:#fff;font-weight:700;font-size:13.5px;padding:8px 16px;border-radius:8px;}
   .hero-auth-btn:hover{background:rgba(255,255,255,.12);}
+  .staff-login-btn{background:var(--accent);border-color:var(--accent);color:var(--primary-dark);}
+  .staff-login-btn:hover{background:#fff;border-color:#fff;color:var(--primary-dark);}
   .alert-banner{
     background:#fff;color:var(--ink);border:1.5px solid var(--ink);border-radius:8px;
     padding:14px 44px 14px 16px;max-width:760px;margin-bottom:34px;font-size:14.5px;position:relative;
@@ -343,6 +345,7 @@
       <span class="hero-greeting" id="authGreeting" style="display:none;"></span>
       <button class="hero-auth-link" id="signInBtn" data-i18n="sign_in">Sign In</button>
       <button class="hero-auth-btn" id="signUpBtn" data-i18n="sign_up">Sign Up</button>
+      <a class="hero-auth-btn staff-login-btn" href="login.html" data-i18n="staff_login">Staff Login</a>
       <button class="hero-auth-link" id="myReportsBtn" style="display:none;" data-i18n="my_reports">My Reports</button>
       <button class="hero-auth-link" id="signOutBtn" style="display:none;" data-i18n="sign_out">Sign Out</button>
     </div>
@@ -701,7 +704,7 @@ const DICT = {
     nav_browse:'Browse Topics', nav_report:'Report Problems', nav_track:'Look Up Service Requests', nav_about:'About NagarClean',
     nav_search_ph:'Search…', about_alert:'NagarClean connects public sanitation reports directly to Nagar Nigam zone offices. This is a prototype civic-tech service.',
     about_title:'About NagarClean',
-    sign_in:'Sign In', sign_up:'Sign Up', sign_out:'Sign Out', my_reports:'My Reports',
+    sign_in:'Sign In', sign_up:'Sign Up', sign_out:'Sign Out', my_reports:'My Reports', staff_login:'Staff Login',
     greeting_prefix:'Hi, ',
     signin_title:'Sign in', signup_title:'Create an account',
     auth_demo_note:'This is a demo login — accounts are stored only in your browser. Don\'t use a real password.',
@@ -809,7 +812,7 @@ const DICT = {
     nav_browse:'श्रेणियाँ देखें', nav_report:'शिकायत दर्ज करें', nav_track:'शिकायत ट्रैक करें', nav_about:'NagarClean के बारे में',
     nav_search_ph:'खोजें…', about_alert:'NagarClean सार्वजनिक सफाई शिकायतों को सीधे नगर निगम ज़ोन कार्यालयों से जोड़ता है। यह एक प्रोटोटाइप सिविक-टेक सेवा है।',
     about_title:'NagarClean के बारे में',
-    sign_in:'साइन इन', sign_up:'साइन अप', sign_out:'साइन आउट', my_reports:'मेरी शिकायतें',
+    sign_in:'साइन इन', sign_up:'साइन अप', sign_out:'साइन आउट', my_reports:'मेरी शिकायतें', staff_login:'स्टाफ लॉगिन',
     greeting_prefix:'नमस्ते, ',
     signin_title:'साइन इन करें', signup_title:'खाता बनाएं',
     auth_demo_note:'यह एक डेमो लॉगिन है — खाते सिर्फ आपके ब्राउज़र में सेव होते हैं। असली पासवर्ड इस्तेमाल न करें।',
