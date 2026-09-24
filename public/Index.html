@@ -707,7 +707,7 @@ const DICT = {
     sign_in:'Sign In', sign_up:'Sign Up', sign_out:'Sign Out', my_reports:'My Reports', staff_login:'Staff Login',
     greeting_prefix:'Hi, ',
     signin_title:'Sign in', signup_title:'Create an account',
-    auth_demo_note:'This is a demo login — accounts are stored only in your browser. Don\'t use a real password.',
+    auth_demo_note:'Demo citizen login: citizen@nagarclean.demo / Citizen@123. Sign in is required before submitting a report.',
     f_email:'Email', f_email_ph:'you@example.com', f_password:'Password', f_password_ph:'Choose a password',
     auth_no_account:'Don\'t have an account?', auth_have_account:'Already have an account?',
     auth_err_required:'Please fill in every field.', auth_err_email_exists:'An account with this email already exists — try signing in instead.',
@@ -815,7 +815,7 @@ const DICT = {
     sign_in:'साइन इन', sign_up:'साइन अप', sign_out:'साइन आउट', my_reports:'मेरी शिकायतें', staff_login:'स्टाफ लॉगिन',
     greeting_prefix:'नमस्ते, ',
     signin_title:'साइन इन करें', signup_title:'खाता बनाएं',
-    auth_demo_note:'यह एक डेमो लॉगिन है — खाते सिर्फ आपके ब्राउज़र में सेव होते हैं। असली पासवर्ड इस्तेमाल न करें।',
+    auth_demo_note:'डेमो नागरिक लॉगिन: citizen@nagarclean.demo / Citizen@123। शिकायत भेजने से पहले साइन इन करना ज़रूरी है।',
     f_email:'ईमेल', f_email_ph:'you@example.com', f_password:'पासवर्ड', f_password_ph:'एक पासवर्ड चुनें',
     auth_no_account:'खाता नहीं है?', auth_have_account:'पहले से खाता है?',
     auth_err_required:'कृपया सभी फ़ील्ड भरें।', auth_err_email_exists:'इस ईमेल से पहले से खाता मौजूद है — कृपया साइन इन करें।',
@@ -1184,6 +1184,13 @@ function openZoneModal(){
 /* =================== AUTH (demo only — accounts live in localStorage, not a real backend) =================== */
 function loadUsers(){ try{ return JSON.parse(localStorage.getItem('nc_users')) || []; }catch(e){ return []; } }
 function saveUsers(users){ localStorage.setItem('nc_users', JSON.stringify(users)); }
+function ensureDemoCitizen(){
+  const users = loadUsers();
+  if(!users.some(user => user.email === 'citizen@nagarclean.demo')){
+    users.push({name:'Demo Citizen', email:'citizen@nagarclean.demo', password:'Citizen@123'});
+    saveUsers(users);
+  }
+}
 function getSession(){ try{ return JSON.parse(localStorage.getItem('nc_session')); }catch(e){ return null; } }
 function setSession(user){ localStorage.setItem('nc_session', JSON.stringify(user)); updateAuthUI(); }
 function clearSession(){ localStorage.removeItem('nc_session'); updateAuthUI(); }
@@ -1218,6 +1225,12 @@ function handleSignUp(){
   saveUsers(users);
   setSession({ name, email });
   closeModal('signUpModal');
+  if(pendingReportRequest){
+    const category = pendingReportCategory;
+    pendingReportRequest = false;
+    pendingReportCategory = null;
+    openReportModal(category);
+  }
 }
 function handleSignIn(){
   hideAuthErr('signInErr');
@@ -1228,6 +1241,12 @@ function handleSignIn(){
   if(!match){ showAuthErr('signInErr', t('auth_err_invalid_login')); return; }
   setSession({ name: match.name, email: match.email });
   closeModal('signInModal');
+  if(pendingReportRequest){
+    const category = pendingReportCategory;
+    pendingReportRequest = false;
+    pendingReportCategory = null;
+    openReportModal(category);
+  }
 }
 function handleSignOut(){ clearSession(); }
 
@@ -1258,7 +1277,15 @@ document.getElementById('si-password').addEventListener('keydown', e=>{ if(e.key
 document.getElementById('su-password').addEventListener('keydown', e=>{ if(e.key==='Enter') handleSignUp(); });
 
 let reportMap, reportMarker, reportLoc = null, photoDataUrl = null;
+let pendingReportCategory = null;
+let pendingReportRequest = false;
 function openReportModal(presetCategory){
+  if(!getSession()){
+    pendingReportRequest = true;
+    pendingReportCategory = presetCategory || null;
+    openModal('signInModal');
+    return;
+  }
   document.getElementById('reportFormWrap').style.display = 'block';
   document.getElementById('reportSuccessWrap').style.display = 'none';
   document.getElementById('reportErr').classList.remove('show');
@@ -1423,6 +1450,7 @@ window.addEventListener('resize', ()=>{ if(window.innerWidth > 860) closeNavPane
 
 /* =================== INIT =================== */
 window.addEventListener('load', ()=>{
+  ensureDemoCitizen();
   applyLang();
   updateAuthUI();
   initSectionMap();

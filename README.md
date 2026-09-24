@@ -15,7 +15,7 @@ Open `http://localhost:4000/`.
 
 The server creates this HQ demo account on first start when no HQ account with the configured email exists:
 
-- Email: `zone1@nagarclean.demo`
+- Email: `admin@nagarclean.demo`
 - Password: `Admin@123`
 - Role: Headquarters
 
@@ -45,6 +45,15 @@ The defaults are intended for local demonstration only. Set these variables in R
 - `ALLOWED_ORIGIN` to the deployed URL, for example `https://nagarclean.onrender.com`
 
 The same email can be used once for Headquarters and once for a Zone Office. Duplicate signup is rejected only for the same email and role.
+
+## Public citizen demo login
+
+The main page creates this local demo citizen account in the browser:
+
+- Email: `citizen@nagarclean.demo`
+- Password: `Citizen@123`
+
+Citizens must sign in before the report form opens. Public demo accounts and their reports are stored in that browser's local storage.
 
 ## Deploy on Render
 
