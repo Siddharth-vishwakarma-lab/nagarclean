@@ -28,6 +28,7 @@
 
   /* ================= APP SHELL (sidebar + main) ================= */
   .app-shell{display:flex;min-height:100vh;min-width:0;}
+  .mobile-backdrop{display:none;}
 
   .sidebar{
     width:var(--sidebar-w);flex:none;background:var(--primary-dark);color:#fff;
@@ -298,8 +299,8 @@
   }
   @media(max-width:860px){
     body.sidebar-open{overflow:hidden;}
-    body.sidebar-open::after{content:'';position:fixed;inset:0;background:rgba(15,20,18,.38);z-index:9990;}
-    .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-105%);transition:transform .2s ease;z-index:10000!important;isolation:isolate;box-shadow:20px 0 40px rgba(0,0,0,.25);}
+    .mobile-backdrop{display:block;position:fixed;inset:0;background:rgba(15,20,18,.38);z-index:9990;}
+    .sidebar{width:min(var(--sidebar-w),calc(100vw - 32px));position:fixed;left:0;top:0;bottom:0;transform:translateX(-105%);transition:transform .2s ease;z-index:10000!important;isolation:isolate;box-shadow:20px 0 40px rgba(0,0,0,.25);}
     .sidebar.open{transform:translateX(0)!important;transition:none;box-shadow:20px 0 40px rgba(0,0,0,.25);}
     .sidebar-toggle{display:flex;align-items:center;justify-content:center;}
     .stat-grid{grid-template-columns:repeat(2,1fr);}
@@ -319,6 +320,7 @@
 </head>
 <body>
 
+<div class="mobile-backdrop" id="mobileBackdrop" aria-hidden="true"></div>
 <div class="app-shell" id="appShell" style="display:none;">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
@@ -921,8 +923,7 @@ function showView(view){
   document.getElementById('view-'+view).classList.add('active');
   document.querySelectorAll('.side-link').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.getElementById('pageTitle').textContent = t('nav_' + view);
-  document.getElementById('sidebar').classList.remove('open');
-  document.body.classList.remove('sidebar-open');
+  setSidebarOpen(false);
   if(view === 'map'){ initMapIfNeeded(); setTimeout(()=>{ if(hqMap) hqMap.invalidateSize(); }, 60); renderMapLayers(); }
   if(view === 'overview'){ setTimeout(()=>{ if(overviewMap) overviewMap.invalidateSize(); }, 60); }
   if(view === 'workers'){ renderWorkers(); }
@@ -937,11 +938,14 @@ function showView(view){
   }
 }
 document.querySelectorAll('.side-link').forEach(b => b.addEventListener('click', ()=>showView(b.dataset.view)));
-document.getElementById('sidebarToggle').addEventListener('click', ()=>{
-  document.getElementById('sidebar').classList.toggle('open');
-  document.body.classList.toggle('sidebar-open', document.getElementById('sidebar').classList.contains('open'));
-});
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ document.getElementById('sidebar').classList.remove('open'); document.body.classList.remove('sidebar-open'); } });
+function setSidebarOpen(open){
+  document.getElementById('sidebar').classList.toggle('open', open);
+  document.getElementById('mobileBackdrop').style.display = open ? 'block' : 'none';
+  document.body.classList.toggle('sidebar-open', open);
+}
+document.getElementById('sidebarToggle').addEventListener('click', ()=>setSidebarOpen(!document.getElementById('sidebar').classList.contains('open')));
+document.getElementById('mobileBackdrop').addEventListener('click', ()=>setSidebarOpen(false));
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') setSidebarOpen(false); });
 
 /* =================== RENDER: OVERVIEW =================== */
 let overviewMap, overviewMarkers = [];
