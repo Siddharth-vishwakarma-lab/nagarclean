@@ -56,6 +56,6 @@ Use the included `render.yaml` Blueprint, or create a Node Web Service with:
 
 ## Important production limitation
 
-The prototype stores users and complaints in `nagarclean-data.json` and keeps sessions in memory. Render's default filesystem is ephemeral, so data can be lost after a restart or redeploy. Use a database such as Render Postgres and a shared session store before treating this as production infrastructure.
+The prototype stores users and complaints in `data/nagarclean-data.json` and keeps sessions in memory. Render's default filesystem is ephemeral, so data can be lost after a restart or redeploy. Use a database such as Render Postgres and a shared session store before treating this as production infrastructure.
 
 The server blocks public access to the JSON data file and only accepts credentialed cross-origin requests from `ALLOWED_ORIGIN`.

@@ -6,7 +6,8 @@ const crypto = require('crypto');
 const PORT = Number(process.env.PORT || 4000);
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
-const DATA_FILE = path.join(ROOT, 'nagarclean-data.json');
+const PUBLIC_ROOT = path.join(ROOT, 'public');
+const DATA_FILE = path.join(ROOT, 'data', 'nagarclean-data.json');
 const SESSION_TTL = 8 * 60 * 60 * 1000;
 const DEMO_ADMIN_EMAIL = process.env.DEMO_ADMIN_EMAIL || 'admin@nagarclean.demo';
 const DEMO_ADMIN_PASSWORD = process.env.DEMO_ADMIN_PASSWORD || 'Admin@123';
@@ -219,9 +220,9 @@ function serveStatic(req, res, url) {
     return send(res, 404, { error: 'not_found' });
   }
   const normalized = path.normalize(safePath).replace(/^\.(?:\/|\\)/, '');
-  let file = path.join(ROOT, normalized || 'Index.html');
+  let file = path.join(PUBLIC_ROOT, normalized || 'Index.html');
 
-  if (!file.startsWith(ROOT)) return send(res, 404, { error: 'not_found' });
+  if (!file.startsWith(PUBLIC_ROOT)) return send(res, 404, { error: 'not_found' });
 
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     const dir = path.dirname(file);

@@ -1,0 +1,4 @@
+data/nagarclean-data.json
+.env
+.DS_Store
+node_modules/
